@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 64">
+  <defs><clipPath id="cipam"><rect width="172" height="64" rx="12"/></clipPath></defs>
+  <rect width="172" height="64" rx="12" fill="#111827"/>
+  <rect width="64" height="64" fill="#052e1e" clip-path="url(#cipam)"/>
+  <g transform="translate(12,12)">
+    <rect x="0" y="0" width="12" height="12" rx="2.4" fill="#10b981"/>
+    <rect x="16" y="0" width="12" height="12" rx="2.4" fill="none" stroke="#10b981" stroke-width="1.8"/>
+    <rect x="32" y="0" width="12" height="12" rx="2.4" fill="#10b981"/>
+    <rect x="0" y="16" width="12" height="12" rx="2.4" fill="none" stroke="#10b981" stroke-width="1.8"/>
+    <rect x="16" y="16" width="12" height="12" rx="2.4" fill="#10b981"/>
+    <rect x="32" y="16" width="12" height="12" rx="2.4" fill="none" stroke="#10b981" stroke-width="1.8"/>
+    <rect x="0" y="32" width="12" height="12" rx="2.4" fill="#10b981"/>
+    <rect x="16" y="32" width="12" height="12" rx="2.4" fill="none" stroke="#10b981" stroke-width="1.8"/>
+    <rect x="32" y="32" width="12" height="12" rx="2.4" fill="#10b981"/>
+  </g>
+  <text x="76" y="22" font-family="Courier New,Courier,monospace" font-size="10" fill="#6b7280" letter-spacing="2">pkt</text>
+  <text x="74" y="48" font-family="Courier New,Courier,monospace" font-size="26" font-weight="700" fill="white" letter-spacing="-1">IPAM</text>
+</svg>

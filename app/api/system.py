@@ -1,0 +1,404 @@
+"""
+/api/system/* — version info, backups, and admin diagnostics.
+"""
+from __future__ import annotations
+
+import asyncio
+import os
+import re
+import shutil
+import subprocess
+import tarfile
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from app.config import get_settings
+from app.dependencies import AdminUser, CurrentUser
+from app.backup import run_backup_sync, list_backups_sync
+
+router = APIRouter()
+
+
+async def _delayed_restart(delay: float = 1.5) -> None:
+    """Wait briefly, then exit so systemd restarts the service (Restart=on-failure)."""
+    await asyncio.sleep(delay)
+    os._exit(1)
+
+
+def _config_file_path() -> Path:
+    """Locate the on-disk config.yaml — same candidates app/config.py checks."""
+    cfg = get_settings()
+    for candidate in [Path("config.yaml"), Path(cfg.install_dir) / "config.yaml"]:
+        if candidate.exists():
+            return candidate
+    raise HTTPException(500, "config.yaml not found")
+
+
+@router.get("/info")
+async def system_info(user: CurrentUser):
+    settings = get_settings()
+    return {
+        "version": "0.1.0",
+        "install_dir": settings.install_dir,
+        "port": settings.port,
+    }
+
+
+@router.post("/restart")
+async def restart_service(user: AdminUser):
+    asyncio.create_task(_delayed_restart())
+    return {"status": "restarting", "message": "Service will restart in ~2 seconds"}
+
+
+class PortUpdate(BaseModel):
+    port: int
+
+
+@router.get("/port")
+async def get_port(user: AdminUser):
+    """
+    The port pktIPAM listens on. Lives in config.yaml (startup config, read
+    before the DB connects) rather than the SQLite-backed settings table —
+    see app/config.py.
+    """
+    return {"port": get_settings().port}
+
+
+@router.post("/port")
+async def set_port(user: AdminUser, body: PortUpdate):
+    """
+    Update the listen port in config.yaml. Takes effect on the next service
+    restart — this only writes the file, it doesn't restart anything itself.
+    """
+    if not (1 <= body.port <= 65535):
+        raise HTTPException(400, "Port must be between 1 and 65535")
+
+    path = _config_file_path()
+    text = path.read_text()
+    new_line = f"port: {body.port}"
+    if re.search(r"(?m)^port:\s*\d+", text):
+        text = re.sub(r"(?m)^port:\s*\d+", new_line, text, count=1)
+    else:
+        text = text.rstrip("\n") + f"\n{new_line}\n"
+    path.write_text(text)
+
+    return {"port": body.port, "message": "Saved — restart the service to apply"}
+
+
+def _ssl_dir() -> Path:
+    return Path(get_settings().ssl_dir)
+
+
+def _cert_file() -> Path:
+    return _ssl_dir() / "server.crt"
+
+
+def _key_file() -> Path:
+    return _ssl_dir() / "server.key"
+
+
+def _cert_info() -> dict:
+    """Read cert metadata via openssl CLI. Returns {} on failure."""
+    try:
+        proc = subprocess.run(
+            ["openssl", "x509", "-in", str(_cert_file()), "-noout",
+             "-enddate", "-subject", "-issuer"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if proc.returncode != 0:
+            return {"error": proc.stderr.strip()}
+        info: dict = {}
+        for line in proc.stdout.strip().splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                k = k.strip().lower()
+                if "notafter" in k or "enddate" in k:
+                    info["expires"] = v.strip()
+                elif k == "subject":
+                    info["subject"] = v.strip()
+                elif k == "issuer":
+                    info["issuer"] = v.strip()
+        try:
+            from datetime import datetime, timezone
+            exp = datetime.strptime(info["expires"], "%b %d %H:%M:%S %Y %Z").replace(
+                tzinfo=timezone.utc
+            )
+            info["days_until_expiry"] = (exp - datetime.now(timezone.utc)).days
+            info["expires_iso"] = exp.isoformat()
+        except Exception:
+            pass
+        return info
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/ssl/status")
+async def ssl_status(user: AdminUser) -> dict:
+    """Return current SSL certificate status."""
+    if not _cert_file().exists() or not _key_file().exists():
+        return {"installed": False}
+    info = await asyncio.to_thread(_cert_info)
+    return {"installed": True, **info}
+
+
+@router.post("/ssl/upload")
+async def upload_ssl_cert(
+    user: AdminUser,
+    cert: UploadFile = File(...),
+    key: UploadFile = File(...),
+) -> dict:
+    """Upload and install a PEM certificate + private key."""
+    cert_data = await cert.read()
+    key_data  = await key.read()
+
+    if b"-----BEGIN CERTIFICATE-----" not in cert_data:
+        raise HTTPException(400, "Invalid certificate — must be PEM format (-----BEGIN CERTIFICATE-----)")
+    if b"PRIVATE KEY-----" not in key_data:
+        raise HTTPException(400, "Invalid private key — must be PEM format (-----BEGIN ... PRIVATE KEY-----)")
+
+    def _save():
+        _ssl_dir().mkdir(parents=True, exist_ok=True)
+        _cert_file().write_bytes(cert_data)
+        _cert_file().chmod(0o644)
+        _key_file().write_bytes(key_data)
+        _key_file().chmod(0o600)
+
+    await asyncio.to_thread(_save)
+    info = await asyncio.to_thread(_cert_info)
+    return {"installed": True, "status": "saved", **info}
+
+
+@router.delete("/ssl/cert")
+async def delete_ssl_cert(user: AdminUser) -> dict:
+    """Remove the installed SSL certificate and key."""
+    _cert_file().unlink(missing_ok=True)
+    _key_file().unlink(missing_ok=True)
+    return {"installed": False, "status": "removed"}
+
+
+@router.post("/ssl/upload-pfx")
+async def upload_ssl_pfx(
+    user: AdminUser,
+    pfx: UploadFile = File(...),
+    passphrase: str = Form(...),
+) -> dict:
+    """
+    Accept a PKCS#12 (.pfx/.p12) bundle + passphrase.
+    Extracts the cert and private key as unencrypted PEM files
+    (server.crt / server.key) so uvicorn can load them without interaction.
+    """
+    pfx_data = await pfx.read()
+
+    def _extract() -> tuple[bool, str]:
+        import tempfile
+        _ssl_dir().mkdir(parents=True, exist_ok=True)
+        tmp = Path(tempfile.mktemp(suffix=".pfx"))
+        tmp.write_bytes(pfx_data)
+        try:
+            cert_proc = subprocess.run(
+                ["openssl", "pkcs12",
+                 "-in", str(tmp),
+                 "-clcerts", "-nokeys",
+                 "-passin", f"pass:{passphrase}",
+                 "-out", str(_cert_file())],
+                capture_output=True, text=True, timeout=15,
+            )
+            if cert_proc.returncode != 0:
+                return False, f"Cert extraction failed: {cert_proc.stderr.strip()}"
+
+            key_proc = subprocess.run(
+                ["openssl", "pkcs12",
+                 "-in", str(tmp),
+                 "-nocerts", "-nodes",
+                 "-passin", f"pass:{passphrase}",
+                 "-out", str(_key_file())],
+                capture_output=True, text=True, timeout=15,
+            )
+            if key_proc.returncode != 0:
+                return False, f"Key extraction failed: {key_proc.stderr.strip()}"
+
+            _cert_file().chmod(0o644)
+            _key_file().chmod(0o600)
+            return True, "ok"
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    ok, msg = await asyncio.to_thread(_extract)
+    if not ok:
+        raise HTTPException(400, msg)
+
+    info = await asyncio.to_thread(_cert_info)
+    return {"installed": True, "status": "saved", **info}
+
+
+@router.get("/backups")
+async def list_backups(user: AdminUser):
+    settings = get_settings()
+    return await asyncio.to_thread(list_backups_sync, settings.db_path)
+
+
+@router.post("/backups/run")
+async def run_backup_now(user: AdminUser):
+    settings = get_settings()
+    result = await asyncio.to_thread(run_backup_sync, settings.db_path)
+    if result.get("status") != "ok":
+        raise HTTPException(status_code=500, detail="Backup failed")
+    return result
+
+
+_STATS_TABLES = [
+    "subnets", "vlans", "ip_addresses", "dhcp_leases", "dns_records",
+    "arp_entries", "conflicts", "collectors", "alert_events",
+]
+
+
+def _storage_stats_sync(db_path: str) -> dict:
+    import sqlite3
+    size_bytes = Path(db_path).stat().st_size if Path(db_path).exists() else 0
+    counts = {}
+    conn = sqlite3.connect(db_path)
+    try:
+        for table in _STATS_TABLES:
+            counts[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    finally:
+        conn.close()
+    return {"db_size_bytes": size_bytes, "row_counts": counts}
+
+
+@router.get("/storage-stats")
+async def storage_stats(user: AdminUser):
+    """SQLite database file size + row counts per table — pktIPAM is
+    SQLite-only (no backend picker like pktsnmp/pktflow's ClickHouse/DuckDB
+    option), so this is what the Data -> Storage tab shows instead."""
+    settings = get_settings()
+    return await asyncio.to_thread(_storage_stats_sync, settings.db_path)
+
+
+@router.post("/cleanup")
+async def run_cleanup_now(user: AdminUser):
+    """Run the retention cleanup (resolved alert_events, old
+    subnet_utilization_history rows) immediately instead of waiting for
+    the daily scheduled pass."""
+    from app.ipam.alerts.cleanup import AlertCleanup
+    cleanup = AlertCleanup()
+    result = await cleanup.run_once()
+    return result
+
+
+def _build_export_archive(out_path: Path) -> None:
+    cfg = get_settings()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+
+        db = Path(cfg.db_path)
+        if db.exists():
+            shutil.copy2(str(db), str(tmp_path / "pktipam.db"))
+
+        for candidate in [Path("config.yaml"), Path(cfg.install_dir) / "config.yaml"]:
+            if candidate.exists():
+                shutil.copy2(str(candidate), str(tmp_path / "config.yaml"))
+                break
+
+        ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        instructions = f"""# pktIPAM Full Restore Bundle
+Generated: {ts}
+
+## Contents
+- pktipam.db   — SQLite: subnets, IP addresses, collectors, users, settings, alert rules
+- config.yaml  — Server startup config (port, secret keys)
+
+## Restore procedure (fresh install)
+1. Deploy pktIPAM to the new server per the README.
+2. Stop the service:     sudo systemctl stop pktipam
+3. Copy pktipam.db    →  {cfg.db_path}
+4. Copy config.yaml   →  {cfg.install_dir}/config.yaml
+5. Start the service:    sudo systemctl start pktipam
+
+## Notes
+- The JWT secret in config.yaml will invalidate existing browser sessions —
+  users on the old server will need to log in again after restore.
+- If you use the UI restore endpoint, the service will need a manual restart
+  after restore for config.yaml changes to take effect.
+"""
+        (tmp_path / "RESTORE.md").write_text(instructions)
+
+        with tarfile.open(str(out_path), "w:gz") as tar:
+            for f in tmp_path.iterdir():
+                tar.add(str(f), arcname=f.name)
+
+
+@router.get("/export")
+async def export_bundle(user: AdminUser):
+    """Download a full backup bundle as a .tar.gz archive — pktipam.db +
+    config.yaml + restore instructions. Streams directly to avoid holding
+    the archive in memory."""
+    date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    filename = f"pktipam-export-{date_str}.tar.gz"
+
+    tmp_out = Path(tempfile.mktemp(suffix=".tar.gz"))
+    try:
+        await asyncio.to_thread(_build_export_archive, tmp_out)
+
+        def _iterfile():
+            try:
+                with open(tmp_out, "rb") as f:
+                    while chunk := f.read(65536):
+                        yield chunk
+            finally:
+                tmp_out.unlink(missing_ok=True)
+
+        return StreamingResponse(
+            _iterfile(),
+            media_type="application/gzip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception:
+        tmp_out.unlink(missing_ok=True)
+        raise
+
+
+def _do_restore(raw: bytes, cfg) -> dict:
+    result: dict = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        archive_path = tmp_path / "upload.tar.gz"
+        archive_path.write_bytes(raw)
+
+        try:
+            with tarfile.open(str(archive_path), "r:gz") as tar:
+                tar.extractall(tmp_path)
+        except Exception as e:
+            return {"error": f"Failed to extract archive: {e}"}
+
+        db_src = tmp_path / "pktipam.db"
+        if db_src.exists():
+            shutil.copy2(str(db_src), cfg.db_path)
+            result["sqlite"] = "restored"
+        else:
+            result["sqlite"] = "not found in bundle"
+
+        cfg_src = tmp_path / "config.yaml"
+        cfg_dest = Path(cfg.install_dir) / "config.yaml"
+        if cfg_src.exists():
+            shutil.copy2(str(cfg_src), str(cfg_dest))
+            result["config"] = "restored (restart required)"
+        else:
+            result["config"] = "not found in bundle"
+
+    return result
+
+
+@router.post("/import")
+async def import_bundle(user: AdminUser, file: UploadFile = File(...)):
+    """Restore from a pktIPAM export bundle (.tar.gz): pktipam.db +
+    config.yaml. Requires a service restart after restore for config
+    changes to take effect."""
+    cfg = get_settings()
+    data = await file.read()
+    result = await asyncio.to_thread(_do_restore, data, cfg)
+    return result
