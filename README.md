@@ -12,12 +12,8 @@ through a React UI with alerting.
 
 **Default port:** `8761` (HTTP)
 
-**Deployment status:** built and verified end-to-end, rsynced to the
-internal `aiserver` host, but **not yet installed there** (no live
-systemd service running it yet) and **no GitHub repository exists for
-this app yet** — everything below describes how the app works from the
-local checkout; the Quick Start's install flow is unexercised against a
-real production install as of this writing.
+**Deployment status:** built, verified end-to-end, and installed as a live
+systemd service on the internal `aiserver` host.
 
 ---
 
@@ -44,6 +40,7 @@ real production install as of this writing.
 - [Backup & Restore](#backup--restore)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
+- [Contributing](#contributing)
 - [Known Gaps / Fast-Follow Work](#known-gaps--fast-follow-work)
 
 ---
@@ -51,8 +48,8 @@ real production install as of this writing.
 ## Quick Start
 
 ```bash
-# 1. Get the code onto the target host (no GitHub repo yet — copy the
-#    checkout directly, e.g. via rsync/scp, rather than `git clone`)
+# 1. Get the code onto the target host
+git clone git@github.com:bsnwgit/pktipam.git
 cd pktipam
 
 # 2. Run the installer — prompts for an install directory (default
@@ -241,6 +238,8 @@ aggregation wanted at once.
 Add a new vendor by writing a `*Collector` subclass in the relevant
 category's package (see each category's `base.py` for the reading
 dataclass shapes) and registering it in that category's `registry.py`.
+See [`docs/collector-setup.md`](docs/collector-setup.md) for the full
+per-collector field reference and setup notes.
 
 ---
 
@@ -557,16 +556,18 @@ cd frontend && npm install && npm run dev   # proxies /api to :8761
 
 ---
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branch strategy, PR workflow,
+deployment rules, and commit message style.
+
+---
+
 ## Known Gaps / Fast-Follow Work
 
 This is a first build, scoped deliberately to ship something real rather
 than everything at once:
 
-- **No GitHub repository yet, and not installed on aiserver** — the code
-  has been rsynced to the shared internal server but has never been
-  `install.sh`'d or run as a live systemd service there; treat the
-  Quick Start as unexercised in a real production environment until that
-  happens.
 - **Windows DHCP/DNS collectors are unverified against live hardware** —
   built against the documented WinRM cmdlet shapes
   (`Get-DhcpServerv4Lease`/`Get-DnsServerResourceRecord`), but no live
