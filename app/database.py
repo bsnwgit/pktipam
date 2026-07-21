@@ -21,6 +21,7 @@ async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
         await conn.execute("PRAGMA foreign_keys=ON")
+        await conn.execute("PRAGMA busy_timeout=5000")
         yield conn
 
 

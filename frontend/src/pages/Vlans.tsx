@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api, Vlan, Site } from '../api/client'
 import SiteSelect from '../components/SiteSelect'
+import Pagination from '../components/Pagination'
+
+const PAGE_SIZE = 25
 
 function VlanModal({ vlan, sites, onClose, onSaved }: { vlan?: Vlan | null; sites: Site[]; onClose: () => void; onSaved: () => void }) {
   const editing = !!vlan
@@ -69,6 +72,8 @@ export default function Vlans() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'create' | Vlan | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Vlan | null>(null)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   const load = () => {
     setLoading(true)
@@ -80,6 +85,21 @@ export default function Vlans() {
 
   const del = async (v: Vlan) => { await api.deleteVlan(v.id); setConfirmDelete(null); load() }
 
+  const filteredVlans = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return vlans
+    return vlans.filter(v =>
+      String(v.vlan_tag).includes(q) ||
+      v.name.toLowerCase().includes(q) ||
+      (v.site ?? '').toLowerCase().includes(q) ||
+      (v.description ?? '').toLowerCase().includes(q)
+    )
+  }, [vlans, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredVlans.length / PAGE_SIZE))
+  const pageClamped = Math.min(page, totalPages)
+  const pagedVlans = filteredVlans.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -88,6 +108,19 @@ export default function Vlans() {
           <span className="text-base leading-none">+</span> Add VLAN
         </button>
       </div>
+
+      <div className="flex items-center gap-2">
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Search tag, name, site, description…"
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 w-72" />
+        {search && <button onClick={() => { setSearch(''); setPage(1) }} className="text-xs text-white hover:text-white">✕</button>}
+      </div>
+
+      {!loading && filteredVlans.length > 0 && (
+        <div className="flex justify-center">
+          <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+        </div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
@@ -104,7 +137,7 @@ export default function Vlans() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
-              {vlans.map(v => (
+              {pagedVlans.map(v => (
                 <tr key={v.id} className="hover:bg-gray-800/30">
                   <td className="px-5 py-3 font-mono text-white">{v.vlan_tag}</td>
                   <td className="px-5 py-3 text-white">{v.name}</td>
@@ -117,8 +150,16 @@ export default function Vlans() {
                 </tr>
               ))}
               {vlans.length === 0 && <tr><td colSpan={5} className="px-5 py-8 text-center text-white">No VLANs yet.</td></tr>}
+              {vlans.length > 0 && filteredVlans.length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-white">No VLANs match this filter.</td></tr>
+              )}
             </tbody>
           </table>
+        )}
+        {!loading && filteredVlans.length > 0 && (
+          <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
+            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedVlans.length).toLocaleString()} of {filteredVlans.length.toLocaleString()} VLANs
+          </div>
         )}
       </div>
 
