@@ -46,6 +46,12 @@ export default function DnsRecords() {
         </div>
       </div>
 
+      {!loading && records.length > 0 && (
+        <div className="flex justify-center">
+          <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+        </div>
+      )}
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
@@ -77,11 +83,8 @@ export default function DnsRecords() {
           </table>
         )}
         {!loading && records.length > 0 && (
-          <div className="px-5 py-2 border-t border-gray-800 flex items-center justify-between text-xs text-white">
-            <span>
-              Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedRecords.length).toLocaleString()} of {records.length.toLocaleString()} records
-            </span>
-            <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+          <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
+            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedRecords.length).toLocaleString()} of {records.length.toLocaleString()} records
           </div>
         )}
       </div>
