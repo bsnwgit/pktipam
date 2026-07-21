@@ -174,14 +174,19 @@ export const api = {
     request<DnsRecord[]>(`/dns-records${toQueryString(params)}`),
 
   // -- Conflicts ---------------------------------------------------------------------
-  getConflicts: (params?: { resolved?: boolean; conflict_type?: string; limit?: number }) => {
+  getConflicts: (params?: { resolved?: boolean; acked?: boolean; conflict_type?: string; limit?: number }) => {
     const q = new URLSearchParams()
     if (params?.resolved !== undefined) q.set('resolved', String(params.resolved))
+    if (params?.acked !== undefined) q.set('acked', String(params.acked))
     if (params?.conflict_type) q.set('conflict_type', params.conflict_type)
     if (params?.limit !== undefined) q.set('limit', String(params.limit))
     return request<Conflict[]>(`/conflicts?${q}`)
   },
   resolveConflict: (id: number) => request(`/conflicts/${id}/resolve`, { method: 'POST' }),
+  resolveAllConflicts: () => request<{ status: string; resolved: number }>('/conflicts/resolve-all', { method: 'POST' }),
+  resolveSelectedConflicts: (ids: number[]) =>
+    request<{ status: string; resolved: number }>('/conflicts/resolve-selected', { method: 'POST', body: JSON.stringify({ ids }) }),
+  ackConflict: (id: number) => request(`/conflicts/${id}/ack`, { method: 'POST' }),
 
   // -- Alerts ---------------------------------------------------------------------
   getAlertRules: () => request<AlertRule[]>('/alerts/rules'),
@@ -545,6 +550,9 @@ export interface Conflict {
   detected_at: string
   resolved_at: string | null
   resolved_by: string | null
+  acked: boolean
+  acked_by: string | null
+  acked_at: string | null
 }
 
 export type AlertConditionType = 'subnet_near_exhaustion' | 'ip_conflict_detected' | 'dhcp_pool_exhausted' | 'dns_ptr_mismatch' | 'collector_down'

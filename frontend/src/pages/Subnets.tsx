@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Subnet, Vlan, Site } from '../api/client'
 import SiteSelect from '../components/SiteSelect'
+import Pagination from '../components/Pagination'
+
+const PAGE_SIZE = 25
 
 function pctColor(pct: number) {
   if (pct >= 90) return 'bg-red-500'
@@ -101,6 +104,8 @@ export default function Subnets() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'create' | Subnet | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Subnet | null>(null)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   const load = () => {
     setLoading(true)
@@ -116,6 +121,21 @@ export default function Subnets() {
     load()
   }
 
+  const filteredSubnets = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return subnets
+    return subnets.filter(s =>
+      s.cidr.toLowerCase().includes(q) ||
+      (s.site ?? '').toLowerCase().includes(q) ||
+      (s.description ?? '').toLowerCase().includes(q) ||
+      (s.gateway ?? '').toLowerCase().includes(q)
+    )
+  }, [subnets, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSubnets.length / PAGE_SIZE))
+  const pageClamped = Math.min(page, totalPages)
+  const pagedSubnets = filteredSubnets.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -124,6 +144,19 @@ export default function Subnets() {
           <span className="text-base leading-none">+</span> Add Subnet
         </button>
       </div>
+
+      <div className="flex items-center gap-2">
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          placeholder="Search CIDR, site, gateway, description…"
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 w-72" />
+        {search && <button onClick={() => { setSearch(''); setPage(1) }} className="text-xs text-white hover:text-white">✕</button>}
+      </div>
+
+      {!loading && filteredSubnets.length > 0 && (
+        <div className="flex justify-center">
+          <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+        </div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
@@ -141,7 +174,7 @@ export default function Subnets() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
-              {subnets.map(s => (
+              {pagedSubnets.map(s => (
                 <tr key={s.id} className="hover:bg-gray-800/30">
                   <td className="px-5 py-3.5">
                     <Link to={`/subnets/${s.id}`} className="text-sky-400 hover:text-sky-300 font-mono">{s.cidr}</Link>
@@ -174,8 +207,16 @@ export default function Subnets() {
               {subnets.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-white">No subnets yet.</td></tr>
               )}
+              {subnets.length > 0 && filteredSubnets.length === 0 && (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-white">No subnets match this filter.</td></tr>
+              )}
             </tbody>
           </table>
+        )}
+        {!loading && filteredSubnets.length > 0 && (
+          <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
+            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedSubnets.length).toLocaleString()} of {filteredSubnets.length.toLocaleString()} subnets
+          </div>
         )}
       </div>
 
