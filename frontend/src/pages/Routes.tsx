@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, RouteEntry } from '../api/client'
 import Pagination from '../components/Pagination'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 const PROTOCOL_BADGE: Record<string, string> = {
   local: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/40',
@@ -19,6 +19,7 @@ export default function Routes() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const load = (searchOverride?: string) => {
     setLoading(true)
@@ -30,9 +31,14 @@ export default function Routes() {
 
   const clearSearch = () => { setSearch(''); load('') }
 
-  const totalPages = Math.max(1, Math.ceil(routes.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(routes.length / pageSize))
   const pageClamped = Math.min(page, totalPages)
-  const pagedRoutes = routes.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+  const pagedRoutes = routes.slice((pageClamped - 1) * pageSize, pageClamped * pageSize)
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -59,8 +65,21 @@ export default function Routes() {
       </div>
 
       {!loading && routes.length > 0 && (
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-6">
           <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+          <div className="flex items-center gap-2">
+            <label htmlFor="routes-per-page" className="text-xs text-gray-400">Routes per page:</label>
+            <select
+              id="routes-per-page"
+              value={pageSize}
+              onChange={e => changePageSize(Number(e.target.value))}
+              className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -104,7 +123,7 @@ export default function Routes() {
         )}
         {!loading && routes.length > 0 && (
           <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedRoutes.length).toLocaleString()} of {routes.length.toLocaleString()} routes
+            Showing {((pageClamped - 1) * pageSize + 1).toLocaleString()}–{((pageClamped - 1) * pageSize + pagedRoutes.length).toLocaleString()} of {routes.length.toLocaleString()} routes
           </div>
         )}
       </div>
