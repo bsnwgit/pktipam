@@ -172,6 +172,8 @@ export const api = {
     request<DhcpLease[]>(`/dhcp-leases${toQueryString(params)}`),
   getDnsRecords: (params?: { collector_id?: number; record_type?: string; search?: string; limit?: number }) =>
     request<DnsRecord[]>(`/dns-records${toQueryString(params)}`),
+  getRoutes: (params?: { collector_id?: number; protocol?: string; search?: string; limit?: number }) =>
+    request<RouteEntry[]>(`/routes${toQueryString(params)}`),
 
   // -- Conflicts ---------------------------------------------------------------------
   getConflicts: (params?: { resolved?: boolean; acked?: boolean; conflict_type?: string; limit?: number }) => {
@@ -348,6 +350,14 @@ export const api = {
     request<UserApiKey>(`/user-api-keys/${provider}`, { method: 'PUT', body: JSON.stringify({ api_key }) }),
   testUserApiKey: (provider: string, api_key: string) =>
     request<{ status: string; detail: string }>(`/user-api-keys/${provider}/test`, { method: 'POST', body: JSON.stringify({ api_key }) }),
+  setIpinfoFields: (enabled_fields: string[]) =>
+    request<UserApiKey>('/user-api-keys/ipinfo/fields', { method: 'PUT', body: JSON.stringify({ enabled_fields }) }),
+  setIpapiIsFields: (enabled_fields: string[]) =>
+    request<UserApiKey>('/user-api-keys/ipapi_is/fields', { method: 'PUT', body: JSON.stringify({ enabled_fields }) }),
+  setIpapiIsFreeTier: (free_tier: boolean) =>
+    request<UserApiKey>('/user-api-keys/ipapi_is/free-tier', { method: 'PUT', body: JSON.stringify({ free_tier }) }),
+  setMxtoolboxFields: (enabled_fields: string[]) =>
+    request<UserApiKey>('/user-api-keys/mxtoolbox/fields', { method: 'PUT', body: JSON.stringify({ enabled_fields }) }),
 }
 
 export interface UserApiKey {
@@ -355,6 +365,8 @@ export interface UserApiKey {
   label: string
   api_key: string
   updated_at: string | null
+  enabled_fields: string[] | null // ipinfo/ipapi_is/mxtoolbox only; null = not customized (all shown)
+  free_tier: boolean // ipapi_is only — use its keyless free tier instead of api_key
 }
 
 export interface StorageStats {
@@ -539,7 +551,19 @@ export interface DnsRecord {
   last_seen: string
 }
 
-export type ConflictType = 'duplicate_ip' | 'duplicate_mac' | 'static_dhcp_mismatch' | 'dns_mismatch' | 'subnet_overlap'
+export interface RouteEntry {
+  id: number
+  collector_id: number
+  device_label: string | null
+  destination: string
+  next_hop: string | null
+  interface: string | null
+  protocol: string | null
+  metric: number | null
+  last_seen: string
+}
+
+export type ConflictType = 'duplicate_ip' | 'duplicate_mac' | 'static_dhcp_mismatch' | 'dns_mismatch' | 'subnet_overlap' | 'subnet_unrouted' | 'route_gateway_mismatch'
 
 export interface Conflict {
   id: number

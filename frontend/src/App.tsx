@@ -12,6 +12,7 @@ const Vlans         = lazy(() => import('./pages/Vlans'))
 const Sites         = lazy(() => import('./pages/Sites'))
 const DhcpLeases    = lazy(() => import('./pages/DhcpLeases'))
 const DnsRecords    = lazy(() => import('./pages/DnsRecords'))
+const Routes_       = lazy(() => import('./pages/Routes'))
 const Conflicts     = lazy(() => import('./pages/Conflicts'))
 const Alerts        = lazy(() => import('./pages/Alerts'))
 const Logs          = lazy(() => import('./pages/Logs'))
@@ -81,6 +82,11 @@ export default function App() {
           <Route path="/dns-records" element={
             <ProtectedRoute>
               <Suspense fallback={<PageFallback />}><DnsRecords /></Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/routes" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageFallback />}><Routes_ /></Suspense>
             </ProtectedRoute>
           } />
           <Route path="/conflicts" element={

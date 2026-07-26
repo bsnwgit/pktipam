@@ -13,6 +13,12 @@ VLAN, Q-BRIDGE-MIB) to annotate each binding — vendor MIB support for VLAN
 mapping varies, so that part is non-fatal on failure, same philosophy as
 pktwifi's snmp_generic dot11-channel walk.
 
+Also walks ipCidrRouteTable (IP-FORWARD-MIB) to report each host's IPv4
+routing table — reuses the same host list/credentials as the ARP walk
+above rather than requiring a second collector, since it's the same boxes
+either way. Non-fatal on failure (older devices / IPv6-only routers may
+not expose this table at all).
+
 Config shape:
 {
   "version": "v2c" | "v3",
@@ -27,7 +33,7 @@ from __future__ import annotations
 
 import logging
 
-from app.ipam.collectors.device.base import DeviceCollector, DevicePollResult, ArpEntryReading
+from app.ipam.collectors.device.base import DeviceCollector, DevicePollResult, ArpEntryReading, RouteReading
 
 log = logging.getLogger("pktipam.collectors.device.snmp_generic")
 
@@ -36,10 +42,31 @@ _IP_NET_TO_MEDIA_PHYS_ADDR = "1.3.6.1.2.1.4.22.1.2"
 _DOT1D_BASE_PORT_IF_INDEX = "1.3.6.1.2.1.17.1.4.1.2"
 _DOT1Q_PVID = "1.3.6.1.2.1.17.7.1.4.5.1.1"
 
+# IP-FORWARD-MIB ipCidrRouteTable — INDEX is
+# {ipCidrRouteDest, ipCidrRouteMask, ipCidrRouteTos, ipCidrRouteNextHop}
+# (4 + 4 + 1 + 4 = 13 sub-identifiers after the column OID), so every
+# column walk shares the same 13-part suffix and rows are correlated by it.
+_ROUTE_IF_INDEX = "1.3.6.1.2.1.4.24.4.1.5"
+_ROUTE_PROTO = "1.3.6.1.2.1.4.24.4.1.7"
+_ROUTE_METRIC1 = "1.3.6.1.2.1.4.24.4.1.11"
+
+# ipCidrRouteProto enumeration (IP-FORWARD-MIB, shares values with the
+# older ipRouteProtocol) — codes not listed here fall back to "other".
+_ROUTE_PROTO_NAMES = {
+    2: "local", 3: "static", 4: "icmp", 5: "egp", 6: "ggp", 7: "hello",
+    8: "rip", 9: "is-is", 10: "es-is", 11: "igrp", 12: "bbn-spf-igp",
+    13: "ospf", 14: "bgp", 15: "idpr", 16: "eigrp",
+}
+
 
 def _mac_from_bytes(value) -> str:
     raw = bytes(value)
     return ":".join(f"{b:02x}" for b in raw) if raw else ""
+
+
+def _mask_to_prefixlen(mask: str) -> int:
+    import ipaddress
+    return ipaddress.IPv4Network(f"0.0.0.0/{mask}").prefixlen
 
 
 def _walk(engine, auth_data, transport, base_oid: str) -> list[tuple[str, object]]:
@@ -58,7 +85,7 @@ def _walk(engine, auth_data, transport, base_oid: str) -> list[tuple[str, object
     return out
 
 
-def _poll_host_sync(host: dict, creds: dict) -> list[ArpEntryReading]:
+def _poll_host_sync(host: dict, creds: dict) -> tuple[list[ArpEntryReading], list[RouteReading]]:
     """Runs in a worker thread — pysnmp's classic hlapi is synchronous."""
     from pysnmp.hlapi import (
         SnmpEngine, CommunityData, UsmUserData, UdpTransportTarget,
@@ -150,7 +177,67 @@ def _poll_host_sync(host: dict, creds: dict) -> list[ArpEntryReading]:
     finally:
         engine2.transportDispatcher.closeDispatcher()
 
-    return entries
+    # -- ipCidrRouteTable (routing table) ----------------------------------------
+    # Walk ifIndex as the primary column (same correlate-by-suffix approach
+    # as the VLAN walk above), then proto/metric as secondary columns keyed
+    # by the same 13-part index suffix.
+    routes: list[RouteReading] = []
+    route_if_index: dict[str, str] = {}
+    engine_d = SnmpEngine()
+    try:
+        for oid, value in _walk(engine_d, auth_data, transport, _ROUTE_IF_INDEX):
+            suffix = oid[len(_ROUTE_IF_INDEX) + 1:]
+            route_if_index[suffix] = str(value)
+    except Exception as exc:
+        log.debug(f"{ip}: ipCidrRouteTable walk unavailable: {exc}")
+    finally:
+        engine_d.transportDispatcher.closeDispatcher()
+
+    if route_if_index:
+        route_proto: dict[str, int] = {}
+        engine_e = SnmpEngine()
+        try:
+            for oid, value in _walk(engine_e, auth_data, transport, _ROUTE_PROTO):
+                suffix = oid[len(_ROUTE_PROTO) + 1:]
+                route_proto[suffix] = int(value)
+        except Exception as exc:
+            log.debug(f"{ip}: ipCidrRouteProto walk unavailable: {exc}")
+        finally:
+            engine_e.transportDispatcher.closeDispatcher()
+
+        route_metric: dict[str, int] = {}
+        engine_f = SnmpEngine()
+        try:
+            for oid, value in _walk(engine_f, auth_data, transport, _ROUTE_METRIC1):
+                suffix = oid[len(_ROUTE_METRIC1) + 1:]
+                route_metric[suffix] = int(value)
+        except Exception as exc:
+            log.debug(f"{ip}: ipCidrRouteMetric1 walk unavailable: {exc}")
+        finally:
+            engine_f.transportDispatcher.closeDispatcher()
+
+        for suffix, if_index in route_if_index.items():
+            parts = suffix.split(".")
+            if len(parts) != 13:
+                continue
+            dest = ".".join(parts[0:4])
+            mask = ".".join(parts[4:8])
+            next_hop = ".".join(parts[9:13])
+            try:
+                prefixlen = _mask_to_prefixlen(mask)
+            except ValueError:
+                continue
+            proto_code = route_proto.get(suffix)
+            routes.append(RouteReading(
+                destination=f"{dest}/{prefixlen}",
+                next_hop=next_hop if next_hop != "0.0.0.0" else None,
+                interface=if_names.get(if_index),
+                protocol=_ROUTE_PROTO_NAMES.get(proto_code, "other") if proto_code else None,
+                metric=route_metric.get(suffix),
+                device_label=label,
+            ))
+
+    return entries, routes
 
 
 class SnmpGenericDeviceCollector(DeviceCollector):
@@ -167,9 +254,11 @@ class SnmpGenericDeviceCollector(DeviceCollector):
         )
 
         result = DevicePollResult()
-        for readings in per_host:
-            if isinstance(readings, Exception):
-                log.warning(f"SNMP device poll failed for a host: {readings}")
+        for host_result in per_host:
+            if isinstance(host_result, Exception):
+                log.warning(f"SNMP device poll failed for a host: {host_result}")
                 continue
-            result.entries.extend(readings)
+            entries, routes = host_result
+            result.entries.extend(entries)
+            result.routes.extend(routes)
         return result
