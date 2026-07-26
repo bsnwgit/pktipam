@@ -17,3 +17,9 @@ class PktSnmpClient(SuiteClient):
 
     async def get_device_interfaces(self, device_id: int) -> list:
         return await self.get(f"/api/snmp/devices/{device_id}/interfaces")
+
+    async def get_device_arp_entries(self, device_id: int) -> list:
+        return await self.get(f"/api/snmp/devices/{device_id}/arp-entries")
+
+    async def get_device_routes(self, device_id: int) -> list:
+        return await self.get(f"/api/snmp/devices/{device_id}/routes")
