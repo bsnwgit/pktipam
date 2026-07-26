@@ -71,6 +71,7 @@ const NAV = [
   { to: '/',               label: 'Dashboard',    icon: '◑', adminOnly: false },
   { to: '/dhcp-leases',    label: 'DHCP Leases',  icon: '⇄', adminOnly: false },
   { to: '/dns-records',    label: 'DNS Records',  icon: '≡', adminOnly: false },
+  { to: '/routes',         label: 'Routing Tables', icon: '⇉', adminOnly: false },
   { to: '/ip-addresses',   label: 'IP Addresses', icon: '▤', adminOnly: false },
   { to: '/conflicts',      label: 'Conflicts',    icon: '⚠', adminOnly: false },
   { to: '/subnets',        label: 'Subnets',      icon: '▦', adminOnly: false, dividerBefore: true },
