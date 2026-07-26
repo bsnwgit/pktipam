@@ -10,6 +10,8 @@ const TYPE_LABEL: Record<string, string> = {
   static_dhcp_mismatch: 'Static/DHCP Mismatch',
   dns_mismatch: 'Stale DNS',
   subnet_overlap: 'Subnet Overlap',
+  subnet_unrouted: 'Subnet Unrouted',
+  route_gateway_mismatch: 'Route/Gateway Mismatch',
 }
 
 type Tab = 'active' | 'history'

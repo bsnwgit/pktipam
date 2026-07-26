@@ -3,10 +3,11 @@ app/ipam/poll_engine.py
 --------------------------
 Background loop that polls every enabled collector on its own configured
 interval and persists what it returns into that category's raw table
-(dhcp_leases, dns_records, arp_entries). Each poll is treated as a full
-current-state snapshot for that collector — the previous poll's rows for
-that collector_id are replaced, not merged — since every implemented
-collector (Kea's lease4-get-all, an AXFR zone transfer, an SNMP ARP walk)
+(dhcp_leases, dns_records, arp_entries, and — for device collectors that
+report one — routes). Each poll is treated as a full current-state
+snapshot for that collector — the previous poll's rows for that
+collector_id are replaced, not merged — since every implemented collector
+(Kea's lease4-get-all, an AXFR zone transfer, an SNMP ARP/route walk)
 already returns its complete current state, not a delta.
 
 This mirrors pktWiFi's poll_engine.py (one file, one tick loop, health
@@ -165,6 +166,22 @@ async def _persist_device(db: aiosqlite.Connection, collector_id: int, result) -
             (collector_id, "native_snmp" if entry.mac_address else "pktsnmp",
              entry.device_label, entry.ip_address, entry.mac_address, entry.interface, entry.vlan_tag),
         )
+
+    # Routing-table entries (currently only snmp_generic populates these —
+    # every other device collector's DevicePollResult.routes is just the
+    # empty default, so this is a no-op for them).
+    await db.execute("DELETE FROM routes WHERE collector_id = ?", (collector_id,))
+    for route in result.routes:
+        if not route.destination:
+            continue
+        await db.execute(
+            """INSERT OR IGNORE INTO routes
+               (collector_id, device_label, destination, next_hop, interface, protocol, metric, last_seen)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (collector_id, route.device_label, route.destination, route.next_hop,
+             route.interface, route.protocol, route.metric),
+        )
+
     return len(result.entries)
 
 

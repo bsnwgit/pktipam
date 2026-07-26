@@ -253,7 +253,7 @@ async def run_backup_now(user: AdminUser):
 
 _STATS_TABLES = [
     "subnets", "vlans", "ip_addresses", "dhcp_leases", "dns_records",
-    "arp_entries", "conflicts", "collectors", "alert_events",
+    "arp_entries", "routes", "conflicts", "collectors", "alert_events",
 ]
 
 
