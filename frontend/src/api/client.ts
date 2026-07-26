@@ -552,8 +552,10 @@ export interface DnsRecord {
 }
 
 export interface RouteEntry {
-  id: number
-  collector_id: number
+  // One row per distinct (destination, next_hop) pair — device_label and
+  // interface are comma-joined when more than one collector/device
+  // confirms the same route, not a per-collector raw row (no id/
+  // collector_id: a single logical route can be backed by several).
   device_label: string | null
   destination: string
   next_hop: string | null
@@ -561,6 +563,12 @@ export interface RouteEntry {
   protocol: string | null
   metric: number | null
   last_seen: string
+  // Not SNMP-observed routing data — the subnet's admin-configured gateway
+  // (Subnets page), surfaced only as a fallback for display when next_hop
+  // is null (a directly-connected/"local" route has no real next-hop in
+  // any protocol). Always render distinctly from next_hop, never merged
+  // in as if it were the same kind of data.
+  subnet_gateway: string | null
 }
 
 export type ConflictType = 'duplicate_ip' | 'duplicate_mac' | 'static_dhcp_mismatch' | 'dns_mismatch' | 'subnet_overlap' | 'subnet_unrouted' | 'route_gateway_mismatch'
