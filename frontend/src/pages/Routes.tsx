@@ -101,9 +101,16 @@ export default function Routes() {
             </thead>
             <tbody className="divide-y divide-gray-800/60">
               {pagedRoutes.map(r => (
-                <tr key={r.id} className="hover:bg-gray-800/30">
+                <tr key={`${r.destination}|${r.next_hop ?? ''}`} className="hover:bg-gray-800/30">
                   <td className="px-5 py-3 font-mono text-white">{r.destination}</td>
-                  <td className="px-5 py-3 font-mono text-white">{r.next_hop ?? '—'}</td>
+                  <td className="px-5 py-3 font-mono text-white">
+                    {r.next_hop ? r.next_hop : r.subnet_gateway ? (
+                      <span title="No next-hop reported by SNMP for this directly-connected route — showing the subnet's configured gateway instead.">
+                        <span className="text-gray-200">{r.subnet_gateway}</span>
+                        <span className="text-gray-400 text-xs ml-1">(subnet gateway)</span>
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td className="px-5 py-3 text-white">{r.interface ?? '—'}</td>
                   <td className="px-5 py-3">
                     {r.protocol
