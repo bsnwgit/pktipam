@@ -7,6 +7,18 @@ ISC Kea DHCP server, via its Control Agent REST API
 This is the reference/primary DHCP collector — Kea's Control Agent gives a
 clean JSON command interface, no file parsing or remote-shell needed.
 
+Known gap (v1): only polls lease4-get-all/lease6-get-all, never Kea's
+host reservations (config-file `reservations` blocks, or a host database
+backend via the optional `reservation-get-all` host_cmds hook command).
+Kea's own lease4 "state" has no "reserved" value at all (see _STATE_MAP)
+— a reservation currently in use looks identical to a plain dynamic
+lease, and one with no active lease (device offline) doesn't appear here
+at all. Same class of bug already fixed in pihole.py/infoblox.py for
+their static/fixed-address reservations. Not fixed here yet because
+querying reservations depends on whether the host_cmds hook happens to
+be loaded on a given install, and there's no live Kea server on hand to
+verify the command's response shape against — fix once that's possible.
+
 Config shape:
 {
   "base_url": "http://10.0.0.10:8000",   # Kea Control Agent endpoint
