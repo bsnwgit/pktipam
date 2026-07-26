@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, Site } from '../api/client'
+import HelpButton from '../components/HelpButton'
 
 function SiteModal({ site, onClose, onSaved }: { site?: Site | null; onClose: () => void; onSaved: () => void }) {
   const editing = !!site
@@ -66,7 +67,13 @@ export default function Sites() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Sites</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">Sites</h1>
+          <HelpButton title="Sites — How It Works">
+            <p>Sites are just labels — a flat list used to tag subnets and VLANs by physical or logical location.</p>
+            <p>Deleting a site only removes it from this list and the picker dropdowns — subnets/VLANs already tagged with that name keep their stored value.</p>
+          </HelpButton>
+        </div>
         <button onClick={() => setModal('create')} className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm rounded-lg">
           <span className="text-base leading-none">+</span> Add Site
         </button>

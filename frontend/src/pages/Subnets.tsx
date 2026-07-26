@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, Subnet, Vlan, Site } from '../api/client'
 import SiteSelect from '../components/SiteSelect'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -225,7 +226,14 @@ export default function Subnets() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Subnets</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">Subnets</h1>
+          <HelpButton title="Subnets — How It Works">
+            <p>Picking a VLAN auto-fills the description from that VLAN's description — edit it freely afterward, it won't be overwritten again once touched.</p>
+            <p>Click a row to open its detail grid — every address in the subnet, colored by status, with bulk-select for multi-IP edits.</p>
+            <p>Utilization is computed from reconciled IP Address data, not just the CIDR's theoretical size.</p>
+          </HelpButton>
+        </div>
         <button onClick={() => setModal('create')} className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm rounded-lg">
           <span className="text-base leading-none">+</span> Add Subnet
         </button>
