@@ -3,7 +3,7 @@ import { api, Vlan, Site } from '../api/client'
 import SiteSelect from '../components/SiteSelect'
 import Pagination from '../components/Pagination'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 function VlanModal({ vlan, sites, onClose, onSaved }: { vlan?: Vlan | null; sites: Site[]; onClose: () => void; onSaved: () => void }) {
   const editing = !!vlan
@@ -74,6 +74,7 @@ export default function Vlans() {
   const [confirmDelete, setConfirmDelete] = useState<Vlan | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const load = () => {
     setLoading(true)
@@ -96,9 +97,14 @@ export default function Vlans() {
     )
   }, [vlans, search])
 
-  const totalPages = Math.max(1, Math.ceil(filteredVlans.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filteredVlans.length / pageSize))
   const pageClamped = Math.min(page, totalPages)
-  const pagedVlans = filteredVlans.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+  const pagedVlans = filteredVlans.slice((pageClamped - 1) * pageSize, pageClamped * pageSize)
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -117,8 +123,21 @@ export default function Vlans() {
       </div>
 
       {!loading && filteredVlans.length > 0 && (
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-6">
           <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+          <div className="flex items-center gap-2">
+            <label htmlFor="vlans-per-page" className="text-xs text-gray-400">VLANs per page:</label>
+            <select
+              id="vlans-per-page"
+              value={pageSize}
+              onChange={e => changePageSize(Number(e.target.value))}
+              className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -158,7 +177,7 @@ export default function Vlans() {
         )}
         {!loading && filteredVlans.length > 0 && (
           <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedVlans.length).toLocaleString()} of {filteredVlans.length.toLocaleString()} VLANs
+            Showing {((pageClamped - 1) * pageSize + 1).toLocaleString()}–{((pageClamped - 1) * pageSize + pagedVlans.length).toLocaleString()} of {filteredVlans.length.toLocaleString()} VLANs
           </div>
         )}
       </div>

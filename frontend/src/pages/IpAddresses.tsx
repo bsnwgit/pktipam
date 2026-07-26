@@ -3,7 +3,7 @@ import { api, IpAddress, Subnet, IpStatus } from '../api/client'
 import IpHistoryModal from '../components/IpHistoryModal'
 import Pagination from '../components/Pagination'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 const STATUS_BADGE: Record<IpStatus, string> = {
   free: 'bg-gray-800 text-white border border-gray-700',
@@ -23,6 +23,7 @@ export default function IpAddresses() {
   const [loading, setLoading] = useState(true)
   const [historyIp, setHistoryIp] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   useEffect(() => { api.getSubnets().then(setSubnets).catch(() => {}) }, [])
 
@@ -42,9 +43,14 @@ export default function IpAddresses() {
 
   const subnetLabel = (id: number) => subnets.find(s => s.id === id)?.cidr ?? id
 
-  const totalPages = Math.max(1, Math.ceil(ips.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(ips.length / pageSize))
   const pageClamped = Math.min(page, totalPages)
-  const pagedIps = ips.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+  const pagedIps = ips.slice((pageClamped - 1) * pageSize, pageClamped * pageSize)
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -69,8 +75,21 @@ export default function IpAddresses() {
       </div>
 
       {!loading && ips.length > 0 && (
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-6">
           <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+          <div className="flex items-center gap-2">
+            <label htmlFor="ips-per-page" className="text-xs text-gray-400">Addresses per page:</label>
+            <select
+              id="ips-per-page"
+              value={pageSize}
+              onChange={e => changePageSize(Number(e.target.value))}
+              className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -118,7 +137,7 @@ export default function IpAddresses() {
         )}
         {!loading && ips.length > 0 && (
           <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedIps.length).toLocaleString()} of {ips.length.toLocaleString()} addresses
+            Showing {((pageClamped - 1) * pageSize + 1).toLocaleString()}–{((pageClamped - 1) * pageSize + pagedIps.length).toLocaleString()} of {ips.length.toLocaleString()} addresses
           </div>
         )}
       </div>
