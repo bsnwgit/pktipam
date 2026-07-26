@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, RouteEntry } from '../api/client'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -42,7 +43,13 @@ export default function Routes() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-white">Routing Tables</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white">Routing Tables</h1>
+        <HelpButton title="Routing Tables — How It Works">
+          <p>Routes are collected from devices over SNMP and reconciled against your subnet inventory — a subnet with no matching route is flagged <span className="text-gray-300 font-medium">Subnet Unrouted</span>, and a route whose next hop doesn't match the subnet's configured gateway is flagged <span className="text-gray-300 font-medium">Route/Gateway Mismatch</span> in Conflicts.</p>
+          <p>This is collected data, not a route editor — routes update on the next device poll and can't be changed here.</p>
+        </HelpButton>
+      </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <select value={protocol} onChange={e => setProtocol(e.target.value)} className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, DnsRecord } from '../api/client'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -33,7 +34,13 @@ export default function DnsRecords() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-white">DNS Records</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white">DNS Records</h1>
+        <HelpButton title="DNS Records — How It Works">
+          <p>Pulled from your DNS collectors (Pi-hole, Windows DNS, etc). <span className="text-gray-300 font-medium">A/AAAA/CNAME/PTR</span> types are collected as-reported by the server.</p>
+          <p>Some A records are synthesized from active or reserved DHCP leases rather than a real zone file entry — those self-clean when the lease is renewed or released. A record with no corroborating lease or ARP entry is flagged as a Stale DNS conflict.</p>
+        </HelpButton>
+      </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <select value={recordType} onChange={e => setRecordType(e.target.value)} className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5">

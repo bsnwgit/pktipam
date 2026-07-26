@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, Collector, CollectorType, CollectorCategory, FieldSchema, Site, SnmpCredential, Integration } from '../api/client'
 import CollectorConfigForm from '../components/CollectorConfigForm'
+import HelpButton from '../components/HelpButton'
 
 const CATEGORIES: Array<{ id: CollectorCategory; label: string }> = [
   { id: 'dhcp', label: 'DHCP' },
@@ -272,7 +273,14 @@ export default function Collectors() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Collectors</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">Collectors</h1>
+          <HelpButton title="Collectors — How It Works">
+            <p>Collectors poll <span className="text-gray-300 font-medium">DHCP</span>, <span className="text-gray-300 font-medium">DNS</span>, and <span className="text-gray-300 font-medium">device/SNMP</span> sources on a schedule and reconcile the results into Subnets, IP Addresses, DHCP Leases, DNS Records, and Routing Tables — mismatches between sources surface as Conflicts.</p>
+            <p>Each collector only handles the category it's scoped to — network gear offering DHCP/DNS secondarily isn't collected here, only primary DHCP/DNS servers and appliances (ISC, Windows DHCP, Pi-hole, Infoblox, etc).</p>
+            <p>Poll Now runs a collector immediately instead of waiting for its schedule — useful right after adding one or changing its config.</p>
+          </HelpButton>
+        </div>
         <button onClick={() => setModal('create')} className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm rounded-lg">
           <span className="text-base leading-none">+</span> Add Collector
         </button>

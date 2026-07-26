@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, Vlan, Site } from '../api/client'
 import SiteSelect from '../components/SiteSelect'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -109,7 +110,13 @@ export default function Vlans() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">VLANs</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">VLANs</h1>
+          <HelpButton title="VLANs — How It Works">
+            <p>A simple registry of VLAN tag, name, site, and description — used by Subnets to auto-fill a description when you assign a subnet to a VLAN.</p>
+            <p>This list isn't collected automatically; add VLANs manually to match what's configured on your switches.</p>
+          </HelpButton>
+        </div>
         <button onClick={() => setModal('create')} className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm rounded-lg">
           <span className="text-base leading-none">+</span> Add VLAN
         </button>
