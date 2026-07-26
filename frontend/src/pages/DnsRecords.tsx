@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, DnsRecord } from '../api/client'
 import Pagination from '../components/Pagination'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 export default function DnsRecords() {
   const [records, setRecords] = useState<DnsRecord[]>([])
@@ -10,6 +10,7 @@ export default function DnsRecords() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const load = (searchOverride?: string) => {
     setLoading(true)
@@ -21,9 +22,14 @@ export default function DnsRecords() {
 
   const clearSearch = () => { setSearch(''); load('') }
 
-  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(records.length / pageSize))
   const pageClamped = Math.min(page, totalPages)
-  const pagedRecords = records.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
+  const pagedRecords = records.slice((pageClamped - 1) * pageSize, pageClamped * pageSize)
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -47,8 +53,21 @@ export default function DnsRecords() {
       </div>
 
       {!loading && records.length > 0 && (
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-6">
           <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
+          <div className="flex items-center gap-2">
+            <label htmlFor="records-per-page" className="text-xs text-gray-400">Records per page:</label>
+            <select
+              id="records-per-page"
+              value={pageSize}
+              onChange={e => changePageSize(Number(e.target.value))}
+              className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -84,7 +103,7 @@ export default function DnsRecords() {
         )}
         {!loading && records.length > 0 && (
           <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-            Showing {((pageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((pageClamped - 1) * PAGE_SIZE + pagedRecords.length).toLocaleString()} of {records.length.toLocaleString()} records
+            Showing {((pageClamped - 1) * pageSize + 1).toLocaleString()}–{((pageClamped - 1) * pageSize + pagedRecords.length).toLocaleString()} of {records.length.toLocaleString()} records
           </div>
         )}
       </div>

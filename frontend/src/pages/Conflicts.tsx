@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, Conflict } from '../api/client'
 import Pagination from '../components/Pagination'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 const TYPE_LABEL: Record<string, string> = {
   duplicate_ip: 'Duplicate IP',
@@ -35,10 +35,12 @@ export default function Conflicts() {
 
   const [activeFilter, setActiveFilter] = useState('')
   const [activePage, setActivePage] = useState(1)
+  const [activePageSize, setActivePageSize] = useState(25)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const [historyFilter, setHistoryFilter] = useState('')
   const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize, setHistoryPageSize] = useState(25)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,9 +100,14 @@ export default function Conflicts() {
   }
 
   const filteredActive = useMemo(() => active.filter(c => matches(c, activeFilter)), [active, activeFilter])
-  const activeTotalPages = Math.max(1, Math.ceil(filteredActive.length / PAGE_SIZE))
+  const activeTotalPages = Math.max(1, Math.ceil(filteredActive.length / activePageSize))
   const activePageClamped = Math.min(activePage, activeTotalPages)
-  const pagedActive = filteredActive.slice((activePageClamped - 1) * PAGE_SIZE, activePageClamped * PAGE_SIZE)
+  const pagedActive = filteredActive.slice((activePageClamped - 1) * activePageSize, activePageClamped * activePageSize)
+
+  const changeActivePageSize = (size: number) => {
+    setActivePageSize(size)
+    setActivePage(1)
+  }
 
   const allFilteredSelected = filteredActive.length > 0 && filteredActive.every(c => selected.has(c.id))
   const toggleAllFiltered = () => {
@@ -108,9 +115,14 @@ export default function Conflicts() {
   }
 
   const filteredHistory = useMemo(() => history.filter(c => matches(c, historyFilter)), [history, historyFilter])
-  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE))
+  const historyTotalPages = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize))
   const historyPageClamped = Math.min(historyPage, historyTotalPages)
-  const pagedHistory = filteredHistory.slice((historyPageClamped - 1) * PAGE_SIZE, historyPageClamped * PAGE_SIZE)
+  const pagedHistory = filteredHistory.slice((historyPageClamped - 1) * historyPageSize, historyPageClamped * historyPageSize)
+
+  const changeHistoryPageSize = (size: number) => {
+    setHistoryPageSize(size)
+    setHistoryPage(1)
+  }
 
   return (
     <div className="space-y-4">
@@ -152,8 +164,21 @@ export default function Conflicts() {
           </div>
 
           {!loading && filteredActive.length > 0 && (
-            <div className="flex justify-center">
+            <div className="flex items-center justify-center gap-6">
               <Pagination page={activePageClamped} totalPages={activeTotalPages} onChange={setActivePage} />
+              <div className="flex items-center gap-2">
+                <label htmlFor="active-conflicts-per-page" className="text-xs text-gray-400">Conflicts per page:</label>
+                <select
+                  id="active-conflicts-per-page"
+                  value={activePageSize}
+                  onChange={e => changeActivePageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
@@ -204,7 +229,7 @@ export default function Conflicts() {
             )}
             {!loading && filteredActive.length > 0 && (
               <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-                Showing {((activePageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((activePageClamped - 1) * PAGE_SIZE + pagedActive.length).toLocaleString()} of {filteredActive.length.toLocaleString()} conflicts
+                Showing {((activePageClamped - 1) * activePageSize + 1).toLocaleString()}–{((activePageClamped - 1) * activePageSize + pagedActive.length).toLocaleString()} of {filteredActive.length.toLocaleString()} conflicts
               </div>
             )}
           </div>
@@ -221,8 +246,21 @@ export default function Conflicts() {
           </div>
 
           {!loading && filteredHistory.length > 0 && (
-            <div className="flex justify-center">
+            <div className="flex items-center justify-center gap-6">
               <Pagination page={historyPageClamped} totalPages={historyTotalPages} onChange={setHistoryPage} />
+              <div className="flex items-center gap-2">
+                <label htmlFor="history-conflicts-per-page" className="text-xs text-gray-400">Conflicts per page:</label>
+                <select
+                  id="history-conflicts-per-page"
+                  value={historyPageSize}
+                  onChange={e => changeHistoryPageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
@@ -274,7 +312,7 @@ export default function Conflicts() {
             )}
             {!loading && filteredHistory.length > 0 && (
               <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
-                Showing {((historyPageClamped - 1) * PAGE_SIZE + 1).toLocaleString()}–{((historyPageClamped - 1) * PAGE_SIZE + pagedHistory.length).toLocaleString()} of {filteredHistory.length.toLocaleString()} conflicts
+                Showing {((historyPageClamped - 1) * historyPageSize + 1).toLocaleString()}–{((historyPageClamped - 1) * historyPageSize + pagedHistory.length).toLocaleString()} of {filteredHistory.length.toLocaleString()} conflicts
               </div>
             )}
           </div>
