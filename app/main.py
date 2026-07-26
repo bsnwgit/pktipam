@@ -28,6 +28,7 @@ from app.api import (
     ip_address_history as ip_address_history_router,
     dhcp_leases as dhcp_leases_router,
     dns_records as dns_records_router,
+    routes as routes_router,
     conflicts as conflicts_router,
     alerts as alerts_router,
     logs as logs_router,
@@ -36,6 +37,8 @@ from app.api import (
     suite as suite_router,
     user_api_keys as user_api_keys_router,
     snmp_credentials as snmp_credentials_router,
+    ip_info as ip_info_router,
+    mxtoolbox as mxtoolbox_router,
 )
 
 settings = get_settings()
@@ -131,6 +134,7 @@ app.include_router(ip_addresses_router.router, prefix="/api/ip-addresses", tags=
 app.include_router(ip_address_history_router.router, prefix="/api/ip-address-history", tags=["ip-address-history"])
 app.include_router(dhcp_leases_router.router, prefix="/api/dhcp-leases", tags=["dhcp-leases"])
 app.include_router(dns_records_router.router, prefix="/api/dns-records", tags=["dns-records"])
+app.include_router(routes_router.router,    prefix="/api/routes",       tags=["routes"])
 app.include_router(conflicts_router.router, prefix="/api/conflicts",    tags=["conflicts"])
 app.include_router(alerts_router.router,    prefix="/api/alerts",       tags=["alerts"])
 app.include_router(logs_router.router,      prefix="/api/logs",         tags=["logs"])
@@ -141,6 +145,8 @@ app.include_router(settings_router.router,  prefix="/api/settings",     tags=["s
 app.include_router(system_router.router,    prefix="/api/system",       tags=["system"])
 app.include_router(suite_router.router,     prefix="/api/suite",        tags=["suite"])
 app.include_router(user_api_keys_router.router, prefix="/api/user-api-keys", tags=["user-api-keys"])
+app.include_router(ip_info_router.router,   prefix="/api/ip-info",      tags=["ip-info"])
+app.include_router(mxtoolbox_router.router, prefix="/api/mxtoolbox",    tags=["mxtoolbox"])
 
 # -- Health check ------------------------------------------------------------------
 

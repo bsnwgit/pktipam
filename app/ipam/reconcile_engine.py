@@ -25,6 +25,17 @@ Conflict types detected each tick:
                             corroborating lease, ARP sighting, or manual
                             entry at all ("stale DNS")
   subnet_overlap           - two subnets rows have overlapping CIDRs
+  subnet_unrouted          - a subnet has no discovered route (in the
+                            `routes` table) for its exact CIDR from any
+                            device-collector routing-table walk. Only
+                            checked when at least one route has been
+                            discovered anywhere, so installs with no
+                            routing-capable device collector configured
+                            don't flag every subnet as unrouted.
+  route_gateway_mismatch   - a subnet has a configured gateway, a route
+                            exists for that subnet's exact CIDR, and none
+                            of that route's discovered next-hops match the
+                            configured gateway
 
 Conflicts are upserted keyed by (conflict_type, ip_address, subnet_id):
 re-detected each tick they stay/become unresolved (resolved_at cleared);
@@ -132,6 +143,8 @@ class ReconcileEngine:
                 dns_rows = [dict(r) for r in await cur.fetchall()]
             async with db.execute("SELECT * FROM arp_entries") as cur:
                 arp_rows = [dict(r) for r in await cur.fetchall()]
+            async with db.execute("SELECT * FROM routes") as cur:
+                route_rows = [dict(r) for r in await cur.fetchall()]
             async with db.execute("SELECT * FROM ip_addresses WHERE source = 'manual'") as cur:
                 manual_rows = [dict(r) for r in await cur.fetchall()]
             # Snapshot of every non-manual row's prior state, for change
@@ -307,6 +320,37 @@ class ReconcileEngine:
                     if n1.version == n2.version and n1.overlaps(n2):
                         await _upsert_conflict(db, "subnet_overlap", None, s1["id"],
                                                 {"other_subnet_id": s2["id"], "other_cidr": s2["cidr"]})
+
+            # subnet_unrouted / route_gateway_mismatch — only run when at
+            # least one route has been discovered anywhere, so an install
+            # with no routing-capable device collector configured doesn't
+            # flag every single subnet as unrouted.
+            if route_rows:
+                routes_by_dest: dict[str, list[dict]] = defaultdict(list)
+                for r in route_rows:
+                    try:
+                        net = ipaddress.ip_network(r["destination"], strict=False)
+                    except ValueError:
+                        continue
+                    routes_by_dest[str(net)].append(r)
+
+                for subnet in subnets:
+                    try:
+                        subnet_net = ipaddress.ip_network(subnet["cidr"], strict=False)
+                    except ValueError:
+                        continue
+                    matching_routes = routes_by_dest.get(str(subnet_net), [])
+
+                    if not matching_routes:
+                        await _upsert_conflict(db, "subnet_unrouted", None, subnet["id"], {"cidr": subnet["cidr"]})
+                        continue
+
+                    gateway = subnet["gateway"]
+                    if gateway:
+                        next_hops = {r["next_hop"] for r in matching_routes if r["next_hop"]}
+                        if next_hops and gateway not in next_hops:
+                            await _upsert_conflict(db, "route_gateway_mismatch", None, subnet["id"],
+                                                    {"gateway": gateway, "next_hops": sorted(next_hops)})
 
             # Utilization history — one row per subnet per tick.
             for subnet in subnets:
