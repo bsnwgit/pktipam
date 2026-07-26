@@ -4,7 +4,7 @@ import { useAuth } from '../store/auth'
 import TimeRangeControl, { TimeRange } from '../components/TimeRangeControl'
 
 const LEVELS = ['ALL', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-const PAGE_SIZE = 50
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
 const LEVEL_COLOR: Record<string, string> = {
   DEBUG: 'text-white', INFO: 'text-sky-400', WARNING: 'text-amber-400',
@@ -21,6 +21,7 @@ export default function Logs() {
   const [searchInput, setSearchInput] = useState('')
   const [timeRange, setTimeRange] = useState<TimeRange>({ since: null, until: null })
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [expanded, setExpanded] = useState<number | null>(null)
 
@@ -39,13 +40,13 @@ export default function Logs() {
       logger: logger || undefined,
       search: search || undefined,
       since: timeRange.since, until: timeRange.until,
-      limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE,
+      limit: pageSize, offset: (page - 1) * pageSize,
     }).then(res => { setLogs(res.records); setTotal(res.total) }).finally(() => setLoading(false))
   }
 
   const loadStats = () => { api.getLogStats().then(setStats).catch(() => {}) }
 
-  useEffect(load, [level, logger, search, timeRange, page])
+  useEffect(load, [level, logger, search, timeRange, page, pageSize])
   useEffect(loadStats, [])
   useEffect(() => { setPage(1) }, [level, logger, search, timeRange])
 
@@ -53,7 +54,12 @@ export default function Logs() {
     if (!autoRefresh) return
     const id = setInterval(() => { load(true); loadStats() }, 5000)
     return () => clearInterval(id)
-  }, [autoRefresh, level, logger, search, timeRange, page])
+  }, [autoRefresh, level, logger, search, timeRange, page, pageSize])
+
+  const changePageSize = (size: number) => {
+    setPageSize(size)
+    setPage(1)
+  }
 
   const setCaptureLevel = async (newLevel: string) => {
     setLevelSaving(true)
@@ -66,7 +72,7 @@ export default function Logs() {
     try { await api.clearLogs(); load(); loadStats() } finally { setClearing(false) }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
     <div className="space-y-4">
@@ -176,18 +182,33 @@ export default function Logs() {
 
           <div className="flex items-center justify-between">
             <p className="text-xs text-white">
-              {total === 0 ? '0 records' : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total.toLocaleString()}`}
+              {total === 0 ? '0 records' : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`}
               {autoRefresh && <span className="ml-2 text-emerald-400">● live</span>}
             </p>
-            {totalPages > 1 && (
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Prev</button>
-                <span className="text-xs text-white">Page {page} of {totalPages}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Next</button>
+                <label htmlFor="logs-per-page" className="text-xs text-gray-400">Logs per page:</label>
+                <select
+                  id="logs-per-page"
+                  value={pageSize}
+                  onChange={e => changePageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
               </div>
-            )}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                    className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Prev</button>
+                  <span className="text-xs text-white">Page {page} of {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Next</button>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
