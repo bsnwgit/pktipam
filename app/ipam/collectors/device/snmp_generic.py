@@ -13,11 +13,13 @@ VLAN, Q-BRIDGE-MIB) to annotate each binding — vendor MIB support for VLAN
 mapping varies, so that part is non-fatal on failure, same philosophy as
 pktwifi's snmp_generic dot11-channel walk.
 
-Also walks ipCidrRouteTable (IP-FORWARD-MIB) to report each host's IPv4
-routing table — reuses the same host list/credentials as the ARP walk
-above rather than requiring a second collector, since it's the same boxes
-either way. Non-fatal on failure (older devices / IPv6-only routers may
-not expose this table at all).
+Also walks ipCidrRouteTable (IP-FORWARD-MIB) for each host's IPv4 routing
+table, and inetCidrRouteTable (IP-FORWARD-MIB, RFC 4292) for IPv6 (and any
+dual-stack IPv4 rows a device chooses to report there instead) — reuses
+the same host list/credentials as the ARP walk above rather than requiring
+a second collector, since it's the same boxes either way. Both walks are
+non-fatal on failure (older devices, or gear that only implements one of
+the two route tables, are common — not an error).
 
 Uses pysnmp's `pysnmp.hlapi.asyncio` API (the installed dependency is
 `pysnmp-lextudio>=6.1.0`, whose `pysnmp.hlapi` top level is empty — the
@@ -68,6 +70,63 @@ _ROUTE_PROTO_NAMES = {
     8: "rip", 9: "is-is", 10: "es-is", 11: "igrp", 12: "bbn-spf-igp",
     13: "ospf", 14: "bgp", 15: "idpr", 16: "eigrp",
 }
+
+# inetCidrRouteTable (IP-FORWARD-MIB, RFC 4292) — the address-family-agnostic
+# successor to ipCidrRouteTable, used here for IPv6 (and any IPv4 rows a
+# device reports only through this table). inetCidrRouteProto reuses the
+# same IANAipRouteProtocol enumeration as ipCidrRouteProto above.
+# INDEX is {inetCidrRouteDestType, inetCidrRouteDest, inetCidrRoutePfxLen,
+# inetCidrRoutePolicy, inetCidrRouteNextHopType, inetCidrRouteNextHop} —
+# unlike ipCidrRouteTable this index is variable-length (InetAddress values
+# are length-prefixed to support both 4-byte IPv4 and 16-byte IPv6), so
+# each row's suffix has to be parsed positionally instead of split into
+# fixed-width chunks.
+_INET_ROUTE_IF_INDEX = "1.3.6.1.2.1.4.24.7.1.7"
+_INET_ROUTE_PROTO = "1.3.6.1.2.1.4.24.7.1.9"
+_INET_ROUTE_METRIC1 = "1.3.6.1.2.1.4.24.7.1.12"
+
+# InetAddressType (INET-ADDRESS-MIB) — only the two byte-string-shaped
+# address families are handled; dns/ipv4z/ipv6z/etc. rows are skipped.
+_INET_ADDR_LEN = {1: 4, 2: 16}  # ipv4 -> 4 bytes, ipv6 -> 16 bytes
+
+
+def _inet_addr_from_parts(addr_type: int, byte_parts: list[str]) -> str | None:
+    expected_len = _INET_ADDR_LEN.get(addr_type)
+    if expected_len is None or len(byte_parts) != expected_len:
+        return None
+    try:
+        raw = bytes(int(b) for b in byte_parts)
+    except ValueError:
+        return None
+    return str(ipaddress.IPv4Address(raw)) if addr_type == 1 else str(ipaddress.IPv6Address(raw))
+
+
+def _parse_inet_cidr_route_suffix(parts: list[str]) -> dict | None:
+    """Positionally decode one inetCidrRouteTable row's OID suffix into
+    {destination, next_hop}. Returns None for address families this
+    collector doesn't handle, or a suffix that doesn't parse cleanly
+    (some devices emit malformed/truncated rows for exotic route types)."""
+    try:
+        idx = 0
+        dest_type = int(parts[idx]); idx += 1
+        dest_len = int(parts[idx]); idx += 1
+        dest_bytes = parts[idx:idx + dest_len]; idx += dest_len
+        pfxlen = int(parts[idx]); idx += 1
+        policy_len = int(parts[idx]); idx += 1
+        idx += policy_len  # inetCidrRoutePolicy OID — not needed, skip over it
+        next_hop_type = int(parts[idx]); idx += 1
+        nh_len = int(parts[idx]); idx += 1
+        nh_bytes = parts[idx:idx + nh_len]; idx += nh_len
+    except (IndexError, ValueError):
+        return None
+    if idx != len(parts):
+        return None
+
+    dest_addr = _inet_addr_from_parts(dest_type, dest_bytes)
+    if dest_addr is None:
+        return None
+    next_hop_addr = _inet_addr_from_parts(next_hop_type, nh_bytes) if nh_len else None
+    return {"destination": f"{dest_addr}/{pfxlen}", "next_hop": next_hop_addr}
 
 
 def _mac_from_bytes(value) -> str:
@@ -256,6 +315,59 @@ async def _poll_host(host: dict, creds: dict) -> tuple[list[ArpEntryReading], li
                     interface=if_names.get(if_index),
                     protocol=_ROUTE_PROTO_NAMES.get(proto_code, "other") if proto_code else None,
                     metric=route_metric.get(suffix),
+                    device_label=label,
+                ))
+
+        # -- inetCidrRouteTable (IPv6 routing table) ---------------------------------
+        # Same shape as the ipCidrRouteTable block above, keyed by the raw
+        # suffix instead of a fixed split since InetAddress index fields are
+        # variable-length (see _parse_inet_cidr_route_suffix). IPv4 rows
+        # decoded from this table are dropped below — some devices report
+        # IPv4 through both tables, and ipCidrRouteTable above already has
+        # them.
+        inet_if_index: dict[str, str] = {}
+        try:
+            inet_if_index = {
+                suffix: str(value)
+                for suffix, value in (await _walk_column(engine, auth_data, target, ctx, _INET_ROUTE_IF_INDEX)).items()
+            }
+        except Exception as exc:
+            log.debug(f"{ip}: inetCidrRouteTable walk unavailable: {exc}")
+
+        if inet_if_index:
+            inet_proto: dict[str, int] = {}
+            try:
+                inet_proto = {
+                    suffix: int(value)
+                    for suffix, value in (await _walk_column(engine, auth_data, target, ctx, _INET_ROUTE_PROTO)).items()
+                }
+            except Exception as exc:
+                log.debug(f"{ip}: inetCidrRouteProto walk unavailable: {exc}")
+
+            inet_metric: dict[str, int] = {}
+            try:
+                inet_metric = {
+                    suffix: int(value)
+                    for suffix, value in (await _walk_column(engine, auth_data, target, ctx, _INET_ROUTE_METRIC1)).items()
+                }
+            except Exception as exc:
+                log.debug(f"{ip}: inetCidrRouteMetric1 walk unavailable: {exc}")
+
+            for suffix, if_index in inet_if_index.items():
+                decoded = _parse_inet_cidr_route_suffix(suffix.split("."))
+                if decoded is None or ":" not in decoded["destination"]:
+                    # None: undecodable/unsupported address family. No ":":
+                    # an IPv4 row reported through this table too — already
+                    # covered by ipCidrRouteTable above, skip to avoid a
+                    # duplicate entry.
+                    continue
+                proto_code = inet_proto.get(suffix)
+                routes.append(RouteReading(
+                    destination=decoded["destination"],
+                    next_hop=decoded["next_hop"],
+                    interface=if_names.get(if_index),
+                    protocol=_ROUTE_PROTO_NAMES.get(proto_code, "other") if proto_code else None,
+                    metric=inet_metric.get(suffix),
                     device_label=label,
                 ))
     finally:

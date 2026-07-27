@@ -451,32 +451,31 @@ export default function Alerts() {
           {!loading && events.length > 0 && filteredEvents.length === 0 && (
             <p className="text-sm text-white text-center py-8">No alerts match this filter</p>
           )}
-          {filteredEvents.length > 0 && <Pagination page={eventsPageClamped} totalPages={eventsTotalPages} onChange={setEventsPage} />}
+          {filteredEvents.length > 0 && (
+            <div className="flex items-center justify-center gap-6">
+              <Pagination page={eventsPageClamped} totalPages={eventsTotalPages} onChange={setEventsPage} />
+              <div className="flex items-center gap-2">
+                <label htmlFor="active-alerts-per-page" className="text-xs text-gray-400">Alerts per page:</label>
+                <select
+                  id="active-alerts-per-page"
+                  value={eventsPageSize}
+                  onChange={e => changeEventsPageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             {pagedEvents.map(e => <EventCard key={e.id} event={e} onAck={() => ack(e)} onResolve={() => resolve(e)} />)}
           </div>
           {filteredEvents.length > 0 && (
-            <div className="flex items-center justify-between text-xs text-white pt-1">
-              <span>
-                Showing {((eventsPageClamped - 1) * eventsPageSize + 1).toLocaleString()}–{((eventsPageClamped - 1) * eventsPageSize + pagedEvents.length).toLocaleString()} of {filteredEvents.length.toLocaleString()} alerts
-              </span>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="active-alerts-per-page" className="text-xs text-gray-400">Alerts per page:</label>
-                  <select
-                    id="active-alerts-per-page"
-                    value={eventsPageSize}
-                    onChange={e => changeEventsPageSize(Number(e.target.value))}
-                    className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
-                  >
-                    {PAGE_SIZE_OPTIONS.map(size => (
-                      <option key={size} value={size}>{size}</option>
-                    ))}
-                  </select>
-                </div>
-                <Pagination page={eventsPageClamped} totalPages={eventsTotalPages} onChange={setEventsPage} />
-              </div>
-            </div>
+            <p className="text-xs text-white pt-1">
+              Showing {((eventsPageClamped - 1) * eventsPageSize + 1).toLocaleString()}–{((eventsPageClamped - 1) * eventsPageSize + pagedEvents.length).toLocaleString()} of {filteredEvents.length.toLocaleString()} alerts
+            </p>
           )}
         </div>
       )}
@@ -510,32 +509,31 @@ export default function Alerts() {
           {history.length > 0 && filteredHistory.length === 0 && (
             <p className="text-sm text-white text-center py-8">No alerts match this filter</p>
           )}
-          {filteredHistory.length > 0 && <Pagination page={historyPageClamped} totalPages={historyTotalPages} onChange={setHistoryPage} />}
+          {filteredHistory.length > 0 && (
+            <div className="flex items-center justify-center gap-6">
+              <Pagination page={historyPageClamped} totalPages={historyTotalPages} onChange={setHistoryPage} />
+              <div className="flex items-center gap-2">
+                <label htmlFor="history-alerts-per-page" className="text-xs text-gray-400">Alerts per page:</label>
+                <select
+                  id="history-alerts-per-page"
+                  value={historyPageSize}
+                  onChange={e => changeHistoryPageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             {pagedHistory.map(e => <EventCard key={e.id} event={e} onAck={() => ack(e)} onResolve={() => resolve(e)} />)}
           </div>
           {filteredHistory.length > 0 && (
-            <div className="flex items-center justify-between text-xs text-white pt-1">
-              <span>
-                Showing {((historyPageClamped - 1) * historyPageSize + 1).toLocaleString()}–{((historyPageClamped - 1) * historyPageSize + pagedHistory.length).toLocaleString()} of {filteredHistory.length.toLocaleString()} alerts
-              </span>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="history-alerts-per-page" className="text-xs text-gray-400">Alerts per page:</label>
-                  <select
-                    id="history-alerts-per-page"
-                    value={historyPageSize}
-                    onChange={e => changeHistoryPageSize(Number(e.target.value))}
-                    className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
-                  >
-                    {PAGE_SIZE_OPTIONS.map(size => (
-                      <option key={size} value={size}>{size}</option>
-                    ))}
-                  </select>
-                </div>
-                <Pagination page={historyPageClamped} totalPages={historyTotalPages} onChange={setHistoryPage} />
-              </div>
-            </div>
+            <p className="text-xs text-white pt-1">
+              Showing {((historyPageClamped - 1) * historyPageSize + 1).toLocaleString()}–{((historyPageClamped - 1) * historyPageSize + pagedHistory.length).toLocaleString()} of {filteredHistory.length.toLocaleString()} alerts
+            </p>
           )}
         </div>
       )}

@@ -26,6 +26,7 @@ _SECRET_KEYS = {
     "notify_pagerduty_integration_key",
     "notify_tracecat_api_token",
     "lucid_api_token",
+    "anthropic_api_key",
 }
 
 
