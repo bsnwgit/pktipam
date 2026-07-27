@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { api } from '../api/client'
 import clsx from 'clsx'
+import AiAssistant from './AiAssistant'
 
 function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const [currentPw, setCurrentPw] = useState('')
@@ -76,11 +77,9 @@ const NAV = [
   { to: '/conflicts',      label: 'Conflicts',    icon: '⚠', adminOnly: false },
   { to: '/subnets',        label: 'Subnets',      icon: '▦', adminOnly: false, dividerBefore: true },
   { to: '/vlans',          label: 'VLANs',        icon: '⬡', adminOnly: false },
-  { to: '/sites',          label: 'Sites',        icon: '⚑', adminOnly: false },
-  { to: '/collectors',     label: 'Collectors',   icon: '⇅', adminOnly: true },
   { to: '/alerts',         label: 'Alerts',       icon: '△', adminOnly: false, dividerBefore: true },
   { to: '/logs',           label: 'Logs',         icon: '☰', adminOnly: false },
-  { to: '/settings',       label: 'Settings',     icon: '⚙', adminOnly: true },
+  { to: '/settings',       label: 'Settings',     icon: '⚙', adminOnly: true, dividerBefore: true },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -118,7 +117,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-2 py-4 space-y-0.5">
           {NAV.filter(n => !n.adminOnly || user?.role === 'admin').map(({ to, label, icon, dividerBefore }) => (
             <div key={to}>
-              {dividerBefore && <div className="h-px bg-gray-800 mx-1 my-2" />}
+              {dividerBefore && <div className="h-0.5 bg-gray-600 mx-1 my-2 rounded-full" />}
               <NavLink
                 to={to}
                 end={to === '/'}
@@ -179,6 +178,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
 
+      <AiAssistant />
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
     </div>
   )

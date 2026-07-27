@@ -144,6 +144,31 @@ export default function Logs() {
 
       {loading ? <div className="text-white text-sm">Loading…</div> : (
         <>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Prev</button>
+                <span className="text-xs text-white">Page {page} of {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Next</button>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="logs-per-page" className="text-xs text-gray-400">Logs per page:</label>
+                <select
+                  id="logs-per-page"
+                  value={pageSize}
+                  onChange={e => changePageSize(Number(e.target.value))}
+                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm font-mono">
               <thead>
@@ -180,36 +205,10 @@ export default function Logs() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-white">
-              {total === 0 ? '0 records' : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`}
-              {autoRefresh && <span className="ml-2 text-emerald-400">● live</span>}
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="logs-per-page" className="text-xs text-gray-400">Logs per page:</label>
-                <select
-                  id="logs-per-page"
-                  value={pageSize}
-                  onChange={e => changePageSize(Number(e.target.value))}
-                  className="text-sm bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 focus:outline-none focus:border-sky-500"
-                >
-                  {PAGE_SIZE_OPTIONS.map(size => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
-              </div>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Prev</button>
-                  <span className="text-xs text-white">Page {page} of {totalPages}</span>
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800 disabled:opacity-40">Next</button>
-                </div>
-              )}
-            </div>
-          </div>
+          <p className="text-xs text-white">
+            {total === 0 ? '0 records' : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`}
+            {autoRefresh && <span className="ml-2 text-emerald-400">● live</span>}
+          </p>
         </>
       )}
     </div>
