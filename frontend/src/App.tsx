@@ -9,14 +9,12 @@ const Subnets       = lazy(() => import('./pages/Subnets'))
 const SubnetDetail  = lazy(() => import('./pages/SubnetDetail'))
 const IpAddresses   = lazy(() => import('./pages/IpAddresses'))
 const Vlans         = lazy(() => import('./pages/Vlans'))
-const Sites         = lazy(() => import('./pages/Sites'))
 const DhcpLeases    = lazy(() => import('./pages/DhcpLeases'))
 const DnsRecords    = lazy(() => import('./pages/DnsRecords'))
 const Routes_       = lazy(() => import('./pages/Routes'))
 const Conflicts     = lazy(() => import('./pages/Conflicts'))
 const Alerts        = lazy(() => import('./pages/Alerts'))
 const Logs          = lazy(() => import('./pages/Logs'))
-const Collectors    = lazy(() => import('./pages/Collectors'))
 const Settings      = lazy(() => import('./pages/Settings'))
 
 function PageFallback() {
@@ -69,11 +67,7 @@ export default function App() {
               <Suspense fallback={<PageFallback />}><Vlans /></Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/sites" element={
-            <ProtectedRoute>
-              <Suspense fallback={<PageFallback />}><Sites /></Suspense>
-            </ProtectedRoute>
-          } />
+          <Route path="/sites" element={<Navigate to="/settings" replace />} />
           <Route path="/dhcp-leases" element={
             <ProtectedRoute>
               <Suspense fallback={<PageFallback />}><DhcpLeases /></Suspense>
@@ -104,11 +98,7 @@ export default function App() {
               <Suspense fallback={<PageFallback />}><Logs /></Suspense>
             </ProtectedRoute>
           } />
-          <Route path="/collectors" element={
-            <AdminRoute>
-              <Suspense fallback={<PageFallback />}><Collectors /></Suspense>
-            </AdminRoute>
-          } />
+          <Route path="/collectors" element={<Navigate to="/settings" replace />} />
           <Route path="/integrations" element={<Navigate to="/settings" replace />} />
           <Route path="/settings" element={
             <AdminRoute>
