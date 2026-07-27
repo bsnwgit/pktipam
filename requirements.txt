@@ -44,3 +44,6 @@ paramiko>=3.4.0
 
 # Utilities
 python-dateutil>=2.9.0
+
+# AI assistant
+anthropic>=0.30.0

@@ -4,6 +4,8 @@ import { api, User, UserIn, Integration, IntegrationInput, SslStatus, UserApiKey
 import { useAuth } from '../store/auth'
 import HelpButton from '../components/HelpButton'
 import { copyToClipboard } from '../utils/clipboard'
+import Sites from './Sites'
+import Collectors from './Collectors'
 
 // -- Generic helpers -------------------------------------------------------------
 type SettingsMap = Record<string, unknown>
@@ -1480,7 +1482,7 @@ function UsersTab() {
 }
 
 // -- Main page ---------------------------------------------------------------------
-type TabId = 'general' | 'security' | 'data' | 'notifications' | 'apikeys' | 'snmpcreds' | 'system'
+type TabId = 'general' | 'security' | 'data' | 'notifications' | 'apikeys' | 'snmpcreds' | 'sites' | 'collectors' | 'system'
 
 const TABS: Array<{ id: TabId; label: string; adminOnly?: boolean; gapBefore?: boolean }> = [
   { id: 'general',       label: 'General' },
@@ -1489,21 +1491,23 @@ const TABS: Array<{ id: TabId; label: string; adminOnly?: boolean; gapBefore?: b
   { id: 'notifications', label: 'Notifications' },
   { id: 'apikeys',       label: 'User Keys' },
   { id: 'snmpcreds',     label: 'SNMP Credentials', gapBefore: true },
+  { id: 'sites',         label: 'Sites' },
+  { id: 'collectors',    label: 'Collectors', adminOnly: true },
   { id: 'system',        label: 'System' },
 ]
 
 // -- Security tab — its own left-hand vertical tab strip --------------------------
-// No AI Assistant sub-tab: pktIPAM has no in-app AI chat panel. SSL/TLS is
-// real (app/api/system.py has working cert upload/status endpoints).
+// SSL/TLS is real (app/api/system.py has working cert upload/status endpoints).
 // Suite Integration bundles both directions: the inbound Suite Token (pktHub
 // calling into pktIPAM) and the outbound pktsnmp connection (pktIPAM calling
 // into pktsnmp for device inventory) — same pairing the old Integrations tab
 // already had, just relocated as one unit.
-type SecurityTabId = 'users' | 'auth' | 'suite' | 'ssl'
+type SecurityTabId = 'users' | 'auth' | 'suite' | 'ai' | 'ssl'
 const SECURITY_TABS: Array<{ id: SecurityTabId; label: string; adminOnly?: boolean }> = [
   { id: 'users', label: 'Users', adminOnly: true },
   { id: 'auth',  label: 'Auth' },
   { id: 'suite', label: 'Suite Integration' },
+  { id: 'ai',    label: 'AI Assistant' },
   { id: 'ssl',   label: 'SSL / TLS' },
 ]
 
@@ -1581,6 +1585,7 @@ export default function Settings() {
   const backupSave = useSave(['backup_enabled', 'backup_interval_hours', 'backup_rotation_count', 'backup_path'], settings, load)
   const storageSave = useSave(['alert_event_retention_days', 'utilization_history_retention_days'], settings, load)
   const lucidSave = useSave(['lucid_api_token'], settings, load)
+  const aiAssistantSave = useSave(['anthropic_api_key', 'ai_model'], settings, load)
   const notifySave = useSave([
     'notify_slack_enabled', 'notify_slack_webhook_url', 'notify_slack_channel',
     'notify_email_enabled', 'notify_email_smtp_host', 'notify_email_smtp_port',
@@ -1841,6 +1846,32 @@ export default function Settings() {
                   <SiblingIntegrations />
                 </div>
               </div>
+            )}
+
+            {securityTab === 'ai' && (
+              <Section title="AI Assistant" onSave={aiAssistantSave.save} saving={aiAssistantSave.saving} saved={aiAssistantSave.saved} error={aiAssistantSave.error}
+                help={{
+                  title: 'AI Assistant — How It Works',
+                  content: <>
+                    <p><span className="text-gray-300 font-medium">AI Assistant</span> needs its own Anthropic API key (console.anthropic.com, separate from a Claude Enterprise seat) before the in-app chat panel does anything. Haiku is the default: fastest/cheapest for subnet and lease questions.</p>
+                  </>,
+                }}
+              >
+                <Field label="Anthropic API key" hint="Required for the in-app AI assistant. Get a key at console.anthropic.com.">
+                  <TextInput value={str('anthropic_api_key')} onChange={v => set('anthropic_api_key', v)} placeholder="sk-ant-…" secret mono />
+                </Field>
+                <Field label="AI model" hint="Model used for the assistant. Haiku is fast and cost-effective.">
+                  <SelectInput
+                    value={str('ai_model', 'claude-haiku-4-5-20251001')}
+                    onChange={v => set('ai_model', v)}
+                    options={[
+                      { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku (fast, low cost)' },
+                      { value: 'claude-sonnet-5', label: 'Claude Sonnet (balanced)' },
+                      { value: 'claude-opus-4-8', label: 'Claude Opus (most capable)' },
+                    ]}
+                  />
+                </Field>
+              </Section>
             )}
 
             {securityTab === 'ssl' && (
@@ -2167,6 +2198,12 @@ export default function Settings() {
 
       {/* SNMP Credentials */}
       {tab === 'snmpcreds' && <SnmpCredentialsTab />}
+
+      {/* Sites — moved here from the left nav */}
+      {tab === 'sites' && <Sites />}
+
+      {/* Collectors — moved here from the left nav */}
+      {tab === 'collectors' && isAdmin && <Collectors />}
 
       {/* System */}
       {tab === 'system' && (
