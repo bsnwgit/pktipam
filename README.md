@@ -5,10 +5,12 @@
 </p>
 
 Enterprise IP Address Management — part of the pkt suite. Gathers lease,
-zone, and device-ARP data from your DHCP servers, DNS servers, and network
-devices, reconciles it into a single source of truth (subnets, IP
-addresses, VLANs), and detects conflicts between sources. Surfaces it
-through a React UI with alerting.
+zone, device-ARP, and routing-table data from your DHCP servers, DNS
+servers, and network devices, reconciles it into a single source of truth
+(subnets, IP addresses, VLANs), and detects conflicts between sources.
+Surfaces it through a React UI with alerting and an in-app AI assistant.
+Every page/section has a "?" help button (same pattern across the whole
+pkt* suite) with a short in-context explainer — no separate user manual.
 
 **Default port:** `8761` (HTTP)
 
@@ -32,10 +34,12 @@ systemd service on the internal `aiserver` host.
 - [Synthetic DNS Records](#synthetic-dns-records)
 - [IP Address History](#ip-address-history)
 - [Subnets, VLANs & Mass IP Update](#subnets-vlans--mass-ip-update)
+- [Routing Tables](#routing-tables)
 - [Configuration Reference](#configuration-reference)
 - [Running & Managing the Service](#running--managing-the-service)
 - [Roles & Auth](#roles--auth)
 - [IP Intelligence Lookup](#ip-intelligence-lookup)
+- [AI Assistant](#ai-assistant)
 - [Alerting](#alerting)
 - [Suite Integration](#suite-integration)
 - [Backup & Restore](#backup--restore)
@@ -89,18 +93,19 @@ interactive prompt when set):
 
 ```
    DHCP collectors        DNS collectors         Device collectors
-   (Kea, Windows,         (AXFR generic,          (native SNMP ARP/IP-MIB,
+   (Kea, Windows,         (AXFR generic,          (native SNMP ARP/routes,
     ISC dhcpd legacy,      PowerDNS, Windows,       pktsnmp suite client)
     Infoblox, Pi-hole)      Infoblox, Pi-hole)
         |                        |                         |
-        v                        v                         v
-   dhcp_leases table       dns_records table        arp_entries table
-        \_______________________|_________________________/
-                                 |
-                    app/ipam/reconcile_engine.py
+        v                        v                    v         v
+   dhcp_leases table       dns_records table   arp_entries   routes table
+        \_______________________|_________________/              |
+                                 |                                |
+                    app/ipam/reconcile_engine.py <----------------/
                     (own tick, ~60s — merges sources into
-                     ip_addresses, detects conflicts, updates
-                     subnet utilization history, logs
+                     ip_addresses, detects conflicts (incl.
+                     route-based ones), updates subnet
+                     utilization history, logs
                      ip_address_history on change)
                                  |
                                  v
@@ -110,15 +115,16 @@ interactive prompt when set):
 
 Each collector category persists into its own raw table
 (`app/ipam/poll_engine.py`, one file, dispatches by category since a DHCP
-lease, a DNS record, and an ARP entry are structurally different). A
-separate reconciliation engine (`app/ipam/reconcile_engine.py`) runs on its
-own independent tick, merging the three raw sources plus manually-managed
-static entries into the `ip_addresses` table the UI and API actually read,
-and writing detected conflicts to the `conflicts` table. This decoupling —
-collectors just report what they see, reconciliation separately decides
-what it means — is the core structural difference from a simpler pkt* app
-like pktWiFi (which persists each collector's readings independently, with
-no cross-source merge step).
+lease, a DNS record, an ARP entry, and a route are structurally
+different). A separate reconciliation engine
+(`app/ipam/reconcile_engine.py`) runs on its own independent tick, merging
+the raw sources plus manually-managed static entries into the
+`ip_addresses` table the UI and API actually read, and writing detected
+conflicts to the `conflicts` table. This decoupling — collectors just
+report what they see, reconciliation separately decides what it means —
+is the core structural difference from a simpler pkt* app like pktWiFi
+(which persists each collector's readings independently, with no
+cross-source merge step).
 
 **Scope note:** pktIPAM only ships DHCP/DNS collectors for products whose
 *primary* function is running that service (Kea, ISC dhcpd, Windows
@@ -202,11 +208,11 @@ failure shows a dismissable error modal with the collector's `last_error`.
 
 | Type | Registry key | Notes |
 |---|---|---|
-| ISC Kea | `kea` | Control Agent REST API (`lease4-get-all`/`lease6-get-all`). Clean JSON API — the reference/primary collector. `app/ipam/collectors/dhcp/kea.py` |
+| ISC Kea | `kea` | Control Agent REST API (`lease4-get-all`/`lease6-get-all`). Clean JSON API — the reference/primary collector. **Known gap:** only polls leases, never Kea's host reservations — a reservation in active use looks like a plain dynamic lease (never `reserved`), and one with no active lease doesn't appear at all. Not fixed yet; depends on whether the `host_cmds` hook is loaded on a given install and there's no live Kea server on hand to verify the response shape. `app/ipam/collectors/dhcp/kea.py` |
 | Windows Server DHCP | `windows_dhcp` | WinRM (`pywinrm`) running `Get-DhcpServerv4Scope`/`Get-DhcpServerv4Lease`. Built to the documented cmdlet shape — **unverified against a live server**; spot-check field mappings. `app/ipam/collectors/dhcp/windows_dhcp.py` |
 | ISC dhcpd (legacy) | `isc_dhcpd_legacy` | SSH (`paramiko`) + parses `dhcpd.leases` directly — no REST API exists for classic dhcpd. `app/ipam/collectors/dhcp/isc_dhcpd_legacy.py` |
-| Infoblox NIOS | `infoblox_dhcp` | WAPI REST API, full `_page_id` paging (no result truncation at scale). `app/ipam/collectors/dhcp/infoblox.py` |
-| Pi-hole | `pihole` | Pi-hole v6 REST API. Also the source of pktIPAM's [synthetic DNS records](#synthetic-dns-records), since Pi-hole's own DHCP+DNS integration isn't exposed as a separate "DNS record" anywhere in its API. `app/ipam/collectors/dhcp/pihole.py` |
+| Infoblox NIOS | `infoblox_dhcp` | WAPI REST API, full `_page_id` paging (no result truncation at scale). Fetches Fixed Addresses (host reservations) separately from leases and cross-references by IP so a reservation always reports `reserved` — whether or not it currently holds a live lease. `app/ipam/collectors/dhcp/infoblox.py` |
+| Pi-hole | `pihole` | Pi-hole v6 REST API. Cross-references DHCP static-host config against live leases so a reserved IP always reports `reserved`, not a plain dynamic lease. Also the source of pktIPAM's [synthetic DNS records](#synthetic-dns-records), since Pi-hole's own DHCP+DNS integration isn't exposed as a separate "DNS record" anywhere in its API. `app/ipam/collectors/dhcp/pihole.py` |
 
 **Out of scope, not implemented:** FortiGate, Juniper, Ubiquiti UniFi,
 Cisco IOS/IOS-XE, and Netgear DHCP collectors do not exist in this
@@ -329,6 +335,8 @@ Conflict types detected each tick:
 | `static_dhcp_mismatch` | A manual static reservation's MAC differs from an active DHCP lease's MAC for the same IP |
 | `dns_mismatch` | A DNS A/AAAA record points at an IP with no corroborating lease, ARP sighting, or manual entry ("stale DNS") |
 | `subnet_overlap` | Two configured subnets have overlapping CIDRs |
+| `subnet_unrouted` | A subnet has no discovered route (in the [routing table](#routing-tables)) for its exact CIDR from any device collector's routing-table walk. Only checked once at least one route has been discovered anywhere, so an install with no routing-capable device collector configured doesn't flag every subnet as unrouted |
+| `route_gateway_mismatch` | A subnet has a configured gateway, a route exists for that subnet's exact CIDR, and none of that route's discovered next-hops match the configured gateway |
 
 Conflicts are upserted keyed by (type, ip_address, subnet_id) — re-detected
 each tick they stay/reopen; a resolved conflict whose underlying condition
@@ -337,6 +345,13 @@ conflict rather than fixing the data. An IP that was previously tracked but
 no source sees on a given tick is logged as `released` and reset back to
 `free` (mac/hostname/dns_ptr cleared) rather than left showing stale data
 indefinitely — manual/static entries are never touched by this reset.
+
+The **Conflicts** page has Active/History tabs (mirroring Alerts), each
+with independent search and 25/50/75/100-per-page pagination. Resolve is
+available per-row or in bulk — select a subset and resolve just those, or
+"Resolve all" for everything currently active. A resolved conflict also
+carries an ack trail (`acked`/`acked_by`/`acked_at`) separate from
+resolution itself. `app/api/conflicts.py`, `frontend/src/pages/Conflicts.tsx`.
 
 ---
 
@@ -402,6 +417,41 @@ IP is stamped `source = 'manual'`.
 
 ---
 
+## Routing Tables
+
+Device collectors that can walk a routing table persist into a `routes`
+table (`migrations/011_routes.sql`), same full-replace-on-poll pattern as
+ARP entries. Currently `snmp_generic` is the only source: it walks
+`ipCidrRouteTable` (IP-FORWARD-MIB) for IPv4 and `inetCidrRouteTable`
+(RFC 4292) for IPv6, alongside its existing ARP walk. The `pktsnmp_suite`
+collector reports the same shape of route data when the target pktsnmp
+instance is new enough to expose its own topology endpoints (see
+[Suite Integration](#suite-integration)); older pktsnmp deployments just
+fall back to plain device-inventory entries for that device.
+
+The **Routes** page (`GET /api/routes`, `frontend/src/pages/Routes.tsx`)
+groups rows by (destination, next_hop) — the same physical route is
+commonly reported by more than one collector or device at once, and raw
+per-collector rows would otherwise show up as noisy duplicates. Each
+grouped row lists every contributing device/interface, plus a distinct
+"subnet gateway" column sourced from the Subnets page's own admin-
+configured gateway (not SNMP-observed data — a directly-connected route
+has no real next-hop in any protocol, since the reporting device itself
+is the router for that segment).
+
+Discovered routes feed two reconciliation conflict types — see
+[Reconciliation & Conflict Detection](#reconciliation--conflict-detection):
+`subnet_unrouted` and `route_gateway_mismatch`. Both only run once at
+least one route has been discovered anywhere, so an install with no
+routing-capable device collector configured never flags every subnet.
+
+This is distinct from a dedicated route-table *collector* (a standalone
+collector type sourced independently of the SNMP device walk) — that idea
+is noted but not started; what's documented here is the SNMP-sourced
+routing-table walk that already ships.
+
+---
+
 ## Configuration Reference
 
 See `config.example.yaml` for the full annotated list. Key fields:
@@ -422,8 +472,9 @@ See `config.example.yaml` for the full annotated list. Key fields:
 | `ssl_dir` | `<install_dir>/ssl` | SSL certificate directory (optional override) |
 
 Collector configuration (DHCP/DNS/SNMP credentials), alert rules, sites,
-and the outbound pktsnmp integration are all managed via the UI and stored
-in SQLite — this file only covers infrastructure/startup settings.
+the outbound pktsnmp integration, per-user IP-lookup API keys, and the AI
+Assistant's Anthropic API key are all managed via the UI and stored in
+SQLite — this file only covers infrastructure/startup settings.
 
 ---
 
@@ -459,18 +510,34 @@ three roles (see `app/dependencies.py`).
 
 ## IP Intelligence Lookup
 
-Any public IP address rendered in the app is a clickable link (`GET /api/ip-info/{ip}`) that opens a lookup combining:
+pktIPAM ships the same IP-intelligence backend as the rest of the pkt*
+suite (`GET /api/ip-info/{ip}`), combining:
 
 - **ipinfo.io** — geolocation/ASN/org info, plus company, privacy (VPN/proxy/Tor/relay/hosting), and abuse contact on paid plans
-- **ipapi.is** — geolocation, ASN/org, company, abuse contact, VPN/proxy/Tor/datacenter/abuser detection, all in one call, no plan gating
+- **ipapi.is** — geolocation, ASN/org, company, abuse contact, VPN/proxy/Tor/datacenter/abuser detection, all in one call, no plan gating; has a keyless **free-tier** toggle (1,000 req/day, no signup) as an alternative to a personal key
 - **AbuseIPDB** — abuse confidence score and report history
 - **MXToolbox** — reverse DNS (PTR), ASN, and a blacklist/RBL check
 
-All four are called concurrently. Private/loopback/link-local/reserved/multicast addresses are rejected — external providers have nothing useful to say about them. Unlike the rest of the pkt* suite, there's no separate "internal IP" counterpart here (`/api/ip-info/internal/{ip}` elsewhere calls out to pktIPAM over Suite Integration) — pktIPAM *is* the source of truth for internal addresses, via its own `/api/ip-addresses`.
+All four are called concurrently. Private/loopback/link-local/reserved/multicast addresses are rejected — external providers have nothing useful to say about them. Keys are **per-user**: each logged-in user stores their own under Settings -> User Keys (`app/api/user_api_keys.py`), and lookups run under that user's own key/quota. A fifth provider slot, IPQualityScore, can be saved and tested there but isn't consumed by the lookup yet. For ipinfo.io, ipapi.is, and MXToolbox, a user can also set `enabled_fields` to select which sections of that provider's response they care about.
 
-Keys are **per-user**, not app-wide: each logged-in user stores their own under Settings -> User Keys (`app/api/user_api_keys.py`), and lookups run under that user's own key/quota — no shared/admin key, no cross-user visibility. A fifth provider slot, IPQualityScore, can be saved and tested there but isn't consumed by the lookup yet.
+**No consuming UI in pktIPAM** — unlike pktsnmp/pktflow/pktlog/pktwifi (which each have an `IpLink.tsx` making public IPs clickable), pktIPAM has no lookup modal wired to any page; the backend, per-user keys, and Settings test buttons work, but nothing in the frontend calls `/api/ip-info/{ip}`. This is a deliberate scope decision, not a gap: every IP pktIPAM displays (subnets, leases, DNS records) is internal/private by nature — RFC1918 addresses these providers can't say anything useful about — so there was no page to attach it to. Also, unlike the rest of the suite, there's no separate "internal IP" counterpart here (`/api/ip-info/internal/{ip}` elsewhere calls out to pktIPAM over Suite Integration) — pktIPAM *is* the source of truth for internal addresses, via its own `/api/ip-addresses`. Revisit if pktIPAM starts managing public-facing subnets.
 
-MXToolbox's other commands — email/DNS record checks (SPF, DMARC, DKIM, MX, DNS, TXT, SOA, BIMI, MTA-STS, TLSRPT, A, AAAA) and active probes (ping, traceroute, TCP/HTTP/HTTPS/SMTP connect, run from MXToolbox's own infrastructure against the target) — are reachable via `POST /api/mxtoolbox/lookup` (`{command, argument, port?}`, `app/api/mxtoolbox.py`) but aren't surfaced in the UI yet.
+MXToolbox's other commands — email/DNS record checks (SPF, DMARC, DKIM, MX, DNS, TXT, SOA, BIMI, MTA-STS, TLSRPT, A, AAAA) and active probes (ping, traceroute, TCP/HTTP/HTTPS/SMTP connect, run from MXToolbox's own infrastructure against the target) — are reachable via `POST /api/mxtoolbox/lookup` (`{command, argument, port?}`, `app/api/mxtoolbox.py`) but aren't surfaced anywhere in the UI.
+
+---
+
+## AI Assistant
+
+**Settings -> Security -> AI Assistant** — an in-app chat panel
+(`POST /api/ai/chat`, `app/api/ai.py`) that sends the current view's IPAM
+context (subnet summaries, lease data, DNS records, conflicts) plus the
+user's question to Claude, for questions like "which subnets are close to
+exhaustion" or "explain this conflict." Requires its own Anthropic API key
+(console.anthropic.com — separate from a Claude Enterprise seat) saved in
+Settings before it does anything; disabled with a clear error otherwise.
+Defaults to `claude-haiku-4-5-20251001`, overridable via the model field in
+the same settings. Needs the `anthropic` Python package (already pinned in
+`requirements.txt`).
 
 ---
 
@@ -534,8 +601,13 @@ Settings -> Data -> Backups -> "Run backup now", or let the built-in
 scheduler run on the configured interval (default every 24 hours). Each
 snapshot is a timestamped directory under `<install_dir>/backups/`
 containing `pktipam.db` + `config.yaml`; a full backup bundle can also be
-downloaded as a `.tar.gz`. Restoring a backup requires a manual service
-restart afterward to pick up any restored config.
+downloaded as a `.tar.gz`. Each listed snapshot has a **Restore…** link
+that restores directly from that on-server snapshot — no download/upload
+round trip required — and lets you pick just `pktipam.db` or just
+`config.yaml` instead of always restoring both together; the same
+per-file selection is available on the bundle-upload restore. Restoring a
+backup requires a manual service restart afterward to pick up any
+restored config.
 
 ---
 
@@ -591,9 +663,20 @@ than everything at once:
   (`Get-DhcpServerv4Lease`/`Get-DnsServerResourceRecord`), but no live
   Windows Server has actually been polled yet; spot-check field mappings
   against a real response before relying on them.
-- **The pktsnmp suite-integration device collector has no MAC data** —
-  pktsnmp's device inventory doesn't include one; use the native
-  `snmp_generic` device collector for a full ARP table.
+- **The pktsnmp suite-integration device collector falls back to no-MAC
+  data on older pktsnmp deployments** — it now reports full ARP/route
+  parity with `snmp_generic` when the target pktsnmp instance exposes its
+  topology endpoints (`GET /api/snmp/devices/{id}/arp-entries`/`/routes`),
+  but silently drops back to a plain IP+name inventory entry for any
+  device pktsnmp hasn't polled yet, or against a pktsnmp version that
+  predates those endpoints.
+- **Kea never reports `reserved` status** — the collector only polls
+  active leases, not Kea's own host reservations; see the DHCP collector
+  table above. Pi-hole and Infoblox don't have this gap.
+- **No dedicated route-table collector** — the [routing tables](#routing-tables)
+  feature is an SNMP walk built into `snmp_generic`/`pktsnmp_suite`, not a
+  standalone collector type sourced independently of SNMP; noted as a
+  possible future addition, not started.
 - **Network-gear DHCP/DNS is intentionally out of scope** — see
   [Collectors](#collectors) and the Architecture scope note; this isn't a
   gap so much as a deliberate boundary, but it's worth restating so a

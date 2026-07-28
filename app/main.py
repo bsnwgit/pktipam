@@ -40,6 +40,8 @@ from app.api import (
     ip_info as ip_info_router,
     mxtoolbox as mxtoolbox_router,
     ai as ai_router,
+    widgets as widgets_router,
+    capacity as capacity_router,
 )
 
 settings = get_settings()
@@ -130,6 +132,7 @@ app.include_router(auth.router,             prefix="/api/auth",         tags=["a
 app.include_router(users.router,            prefix="/api/users",        tags=["users"])
 app.include_router(subnets_router.router,   prefix="/api/subnets",      tags=["subnets"])
 app.include_router(vlans_router.router,     prefix="/api/vlans",        tags=["vlans"])
+app.include_router(capacity_router.router,  prefix="/api/capacity",     tags=["capacity"])
 app.include_router(sites_router.router,     prefix="/api/sites",        tags=["sites"])
 app.include_router(ip_addresses_router.router, prefix="/api/ip-addresses", tags=["ip-addresses"])
 app.include_router(ip_address_history_router.router, prefix="/api/ip-address-history", tags=["ip-address-history"])
@@ -149,6 +152,7 @@ app.include_router(user_api_keys_router.router, prefix="/api/user-api-keys", tag
 app.include_router(ip_info_router.router,   prefix="/api/ip-info",      tags=["ip-info"])
 app.include_router(mxtoolbox_router.router, prefix="/api/mxtoolbox",    tags=["mxtoolbox"])
 app.include_router(ai_router.router,        prefix="/api/ai",           tags=["ai"])
+app.include_router(widgets_router.router,   prefix="/api/widgets",      tags=["widgets"])
 
 # -- Health check ------------------------------------------------------------------
 

@@ -133,6 +133,16 @@ export const api = {
   updateSubnet: (id: number, body: Partial<Subnet>) => request<Subnet>(`/subnets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteSubnet: (id: number) => request(`/subnets/${id}`, { method: 'DELETE' }),
 
+  // -- Capacity planner --------------------------------------------------------------
+  calculateCapacity: (hostCount: number, bufferPct = 0) =>
+    request<CapacityCalculation>(`/capacity/calculate${toQueryString({ host_count: hostCount, buffer_pct: bufferPct })}`),
+  searchCapacity: (params: { host_count: number; buffer_pct?: number; subnet_id?: number }) =>
+    request<CapacitySearchResult>(`/capacity/search${toQueryString(params)}`),
+  reserveCapacity: (body: CapacityReserveRequest) =>
+    request<{ status: string; subnet_id: number; start_ip: string; end_ip: string; count: number }>(
+      '/capacity/reserve', { method: 'POST', body: JSON.stringify(body) }
+    ),
+
   // -- VLANs -----------------------------------------------------------------------
   getVlans: () => request<Vlan[]>('/vlans'),
   createVlan: (body: Partial<Vlan>) => request<Vlan>('/vlans', { method: 'POST', body: JSON.stringify(body) }),
@@ -301,9 +311,10 @@ export const api = {
     if (!res.ok) throw new Error(`Export failed: ${res.status} ${res.statusText}`)
     return res.blob()
   },
-  importBundle: async (file: File): Promise<Record<string, string>> => {
+  importBundle: async (file: File, files?: string[]): Promise<Record<string, string>> => {
     const formData = new FormData()
     formData.append('file', file)
+    if (files) formData.append('files', files.join(','))
     const headers: Record<string, string> = {}
     if (_accessToken) headers['Authorization'] = `Bearer ${_accessToken}`
     const res = await fetch('/api/system/import', { method: 'POST', headers, body: formData })
@@ -312,6 +323,10 @@ export const api = {
       throw new Error(err.detail || res.statusText)
     }
     return res.json()
+  },
+  restoreSnapshot: (name: string, files?: string[]): Promise<Record<string, string>> => {
+    const qs = files && files.length ? `?files=${encodeURIComponent(files.join(','))}` : ''
+    return request<Record<string, string>>(`/system/backups/restore/${encodeURIComponent(name)}${qs}`, { method: 'POST' })
   },
 
   // ── SSL ───────────────────────────────────────────────────────────────────
@@ -423,6 +438,7 @@ export interface Subnet {
   description: string | null
   gateway: string | null
   parent_subnet_id: number | null
+  computed_parent_id: number | null
   source: 'manual' | 'discovered'
   created_at: string
   updated_at: string
@@ -470,6 +486,38 @@ export interface SnmpCredentialInput {
   auth_key?: string
   priv_protocol?: 'AES' | 'DES'
   priv_key?: string
+}
+
+export interface CapacityCalculation {
+  host_count: number
+  buffer_pct: number
+  required_hosts: number
+  prefix: number
+  block_size: number
+  usable_hosts: number
+}
+
+export interface CapacityCandidate {
+  subnet_id: number
+  subnet_cidr: string
+  cidr: string | null
+  start_ip: string
+  end_ip: string
+  size: number
+  aligned: boolean
+}
+
+export interface CapacitySearchResult extends CapacityCalculation {
+  candidates: CapacityCandidate[]
+}
+
+export interface CapacityReserveRequest {
+  subnet_id: number
+  start_ip: string
+  end_ip: string
+  description?: string | null
+  owner?: string | null
+  tags?: string[]
 }
 
 export interface Vlan {

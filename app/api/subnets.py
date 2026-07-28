@@ -25,13 +25,38 @@ class SubnetRequest(BaseModel):
     parent_subnet_id: int | None = None
 
 
-def _subnet_out(row) -> dict:
+def _subnet_out(row, computed_parent_id: int | None = None) -> dict:
     return {
         "id": row["id"], "cidr": row["cidr"], "vlan_id": row["vlan_id"],
         "site": row["site"], "description": row["description"], "gateway": row["gateway"],
-        "parent_subnet_id": row["parent_subnet_id"], "source": row["source"],
-        "created_at": row["created_at"], "updated_at": row["updated_at"],
+        "parent_subnet_id": row["parent_subnet_id"], "computed_parent_id": computed_parent_id,
+        "source": row["source"], "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
+
+
+def compute_parents(rows) -> dict[int, int | None]:
+    """Map each subnet id to the id of the tightest other subnet whose CIDR
+    fully contains it — derived purely from the CIDRs on hand, not the
+    (currently unused) parent_subnet_id column. Lets a "supernet" like
+    10.1.0.0/16 automatically pick up any subnet carved out of it, in any
+    order, with no manual linking."""
+    parsed = []
+    for r in rows:
+        try:
+            parsed.append((r["id"], ipaddress.ip_network(r["cidr"], strict=False)))
+        except ValueError:
+            continue
+
+    parents: dict[int, int | None] = {}
+    for sid, net in parsed:
+        best_id, best_prefix = None, -1
+        for oid, onet in parsed:
+            if oid == sid or onet.version != net.version:
+                continue
+            if onet.prefixlen < net.prefixlen and net.subnet_of(onet) and onet.prefixlen > best_prefix:
+                best_id, best_prefix = oid, onet.prefixlen
+        parents[sid] = best_id
+    return parents
 
 
 def _validate_cidr(cidr: str) -> None:
@@ -51,10 +76,11 @@ async def list_subnets(user: CurrentUser, site: str | None = None, db: aiosqlite
     query += " ORDER BY cidr"
     async with db.execute(query, params) as cur:
         rows = await cur.fetchall()
+    parents = compute_parents(rows)
 
     out = []
     for r in rows:
-        d = _subnet_out(r)
+        d = _subnet_out(r, parents.get(r["id"]))
         async with db.execute(
             """SELECT used_count, total_count, pct_used FROM subnet_utilization_history
                WHERE subnet_id = ? ORDER BY id DESC LIMIT 1""",
@@ -71,11 +97,12 @@ async def list_subnets(user: CurrentUser, site: str | None = None, db: aiosqlite
 
 @router.get("/{subnet_id}")
 async def get_subnet(subnet_id: int, user: CurrentUser, db: aiosqlite.Connection = Depends(get_db)):
-    async with db.execute("SELECT * FROM subnets WHERE id = ?", (subnet_id,)) as cur:
-        row = await cur.fetchone()
+    async with db.execute("SELECT * FROM subnets") as cur:
+        rows = await cur.fetchall()
+    row = next((r for r in rows if r["id"] == subnet_id), None)
     if not row:
         raise HTTPException(status_code=404, detail="Subnet not found")
-    return _subnet_out(row)
+    return _subnet_out(row, compute_parents(rows).get(subnet_id))
 
 
 @router.get("/{subnet_id}/utilization-history")

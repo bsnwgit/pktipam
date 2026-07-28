@@ -36,6 +36,16 @@ throughout.
 Requires the Kea Control Agent to be running and reachable from the
 pktIPAM host (`lease4-get-all`/`lease6-get-all` commands).
 
+> **Known gap:** only polls leases, never Kea's own host reservations
+> (config-file `reservations` blocks, or the optional `reservation-get-all`
+> `host_cmds` hook). A reservation currently in use looks identical to a
+> plain dynamic lease — it never reports `reserved` — and one with no
+> active lease (device offline) doesn't appear at all. Pi-hole and
+> Infoblox below don't have this gap; Kea isn't fixed yet because
+> reservation querying depends on whether `host_cmds` happens to be
+> loaded on a given install, and there's no live Kea server on hand to
+> verify the response shape against.
+
 ### Windows Server DHCP (`windows_dhcp`)
 
 WinRM (`pywinrm`), running `Get-DhcpServerv4Scope`/`Get-DhcpServerv4Lease`.
@@ -79,6 +89,12 @@ truncated.
 | `wapi_version` | Defaults to `2.12` if left blank |
 | `verify_tls` | On by default |
 
+Fetches Fixed Addresses (host reservations) separately from active
+leases and cross-references them by IP, so a reservation always reports
+`state: reserved` — whether or not it currently holds a live lease
+transaction — instead of only showing up when a client happens to be
+online.
+
 ### Pi-hole (`pihole`)
 
 Pi-hole v6 REST API. This is also the source of pktIPAM's
@@ -91,6 +107,10 @@ anywhere in its API.
 | `base_url` | e.g. `https://10.0.0.90` |
 | `password` | Admin password, or a dedicated App Password from Pi-hole's Settings -> API / Web interface |
 | `verify_tls` | Off by default (Pi-hole's default cert is usually self-signed) |
+
+Cross-references Pi-hole's DHCP static-host config against live leases,
+so a reserved IP always reports `state: reserved` whether or not it's
+currently holding a lease.
 
 > If Pi-hole clients aren't resolving as expected, check
 > `dns.expandHosts` and `domainNeeded` on the Pi-hole side — a disabled
@@ -161,8 +181,12 @@ Pi-hole v6 REST API, Local DNS Records.
 ### Generic SNMP (`snmp_generic`)
 
 Native vendor-neutral walk of IP-MIB `ipNetToMediaTable` (ARP: IP↔MAC),
-`ifTable` (interface names), and a best-effort `Q-BRIDGE-MIB` per-port
-VLAN read.
+`ifTable` (interface names), a best-effort `Q-BRIDGE-MIB` per-port VLAN
+read, and each host's routing table — IP-FORWARD-MIB `ipCidrRouteTable`
+for IPv4, `inetCidrRouteTable` (RFC 4292) for IPv6 — feeding the
+[Routes page](../README.md#routing-tables). This is an SNMP walk, not a
+separate collector type; a dedicated route-table-only collector is a
+possible future addition, not yet built.
 
 | Field | Notes |
 |---|---|
@@ -182,10 +206,16 @@ pktsnmp instance already collected, instead of polling devices directly.
 |---|---|
 | `integration_id` | Picked from Settings -> Security -> Suite Integration's named pktsnmp connections list |
 
-> **Only has IP + name, no MAC** — pktsnmp polls its own OID catalog, not
-> necessarily the ARP table, so readings from this collector mark an IP
-> as "seen" but are excluded from MAC-based conflict checks. Use
-> `snmp_generic` instead when you need a full ARP table.
+When the target pktsnmp instance is new enough to expose its own topology
+endpoints (`GET /api/snmp/devices/{id}/arp-entries` and `/routes`), this
+collector reports the same shape of ARP and route data as a direct
+`snmp_generic` poll would — full MAC/interface/VLAN and routing-table
+rows — just sourced from pktsnmp's already-established credentials
+instead of pktIPAM's own. Per-device lookups are independently
+non-fatal: an older pktsnmp deployment without those endpoints, or a
+device pktsnmp hasn't polled yet, just falls back to the plain
+device-inventory entry (IP + name, no MAC) for that device rather than
+failing the whole poll.
 
 Both device collector types can be enabled simultaneously.
 

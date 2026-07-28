@@ -77,18 +77,24 @@ const NAV = [
   { to: '/conflicts',      label: 'Conflicts',    icon: '⚠', adminOnly: false },
   { to: '/subnets',        label: 'Subnets',      icon: '▦', adminOnly: false, dividerBefore: true },
   { to: '/vlans',          label: 'VLANs',        icon: '⬡', adminOnly: false },
+  { to: '/capacity-planner', label: 'Capacity Planner', icon: '⊞', adminOnly: false },
   { to: '/alerts',         label: 'Alerts',       icon: '△', adminOnly: false, dividerBefore: true },
   { to: '/logs',           label: 'Logs',         icon: '☰', adminOnly: false },
   { to: '/settings',       label: 'Settings',     icon: '⚙', adminOnly: true, dividerBefore: true },
 ]
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children, chromeless = false }: { children: ReactNode; chromeless?: boolean }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [unacked, setUnacked] = useState<number>(0)
   const [showChangePw, setShowChangePw] = useState(false)
 
   useEffect(() => {
+    // Chromeless embeds (pkthub iframe) don't render the sidebar badge this
+    // polling feeds — skip the network chatter, but keep the hook itself
+    // running every render so hook order stays stable.
+    if (chromeless) return
+
     const tick = async () => {
       try {
         const events = await api.getAlertEvents({ active: true, acked: false, limit: 500 })
@@ -100,18 +106,27 @@ export default function Layout({ children }: { children: ReactNode }) {
     tick()
     const id = setInterval(tick, 30_000)
     return () => clearInterval(id)
-  }, [])
+  }, [chromeless])
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
   }
 
+  if (chromeless) {
+    return (
+      <div className="bg-gray-950 text-white min-h-screen p-5">
+        {children}
+        {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
       <aside className="w-52 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div className="flex items-center px-3 py-3 border-b border-gray-800">
-          <img src="/lockup-64h.png" alt="pktIPAM" className="w-full h-auto" />
+          <img src="lockup-64h.png" alt="pktIPAM" className="w-full h-auto" />
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-0.5">
