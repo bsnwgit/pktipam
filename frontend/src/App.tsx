@@ -9,6 +9,7 @@ const Subnets       = lazy(() => import('./pages/Subnets'))
 const SubnetDetail  = lazy(() => import('./pages/SubnetDetail'))
 const IpAddresses   = lazy(() => import('./pages/IpAddresses'))
 const Vlans         = lazy(() => import('./pages/Vlans'))
+const CapacityPlanner = lazy(() => import('./pages/CapacityPlanner'))
 const DhcpLeases    = lazy(() => import('./pages/DhcpLeases'))
 const DnsRecords    = lazy(() => import('./pages/DnsRecords'))
 const Routes_       = lazy(() => import('./pages/Routes'))
@@ -21,11 +22,13 @@ function PageFallback() {
   return <div className="flex items-center justify-center h-48 text-white">Loading…</div>
 }
 
+const isChromeless = new URLSearchParams(window.location.search).get('chromeless') === '1'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   if (isLoading) return <PageFallback />
   if (!user) return <Navigate to="/login" replace />
-  return <Layout>{children}</Layout>
+  return <Layout chromeless={isChromeless}>{children}</Layout>
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -33,12 +36,18 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) return <PageFallback />
   if (!user) return <Navigate to="/login" replace />
   if (user.role !== 'admin') return <Navigate to="/" replace />
-  return <Layout>{children}</Layout>
+  return <Layout chromeless={isChromeless}>{children}</Layout>
 }
+
+// When loaded through pkthub's proxy, the browser's real path is
+// /proxy/<app_id>/... — react-router needs that as its basename or every
+// route fails to match and falls through to the "*" redirect (Dashboard).
+const proxyPrefixMatch = window.location.pathname.match(/^\/proxy\/\d+/)
+const routerBasename = proxyPrefixMatch ? proxyPrefixMatch[0] : undefined
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename}>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -65,6 +74,11 @@ export default function App() {
           <Route path="/vlans" element={
             <ProtectedRoute>
               <Suspense fallback={<PageFallback />}><Vlans /></Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/capacity-planner" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageFallback />}><CapacityPlanner /></Suspense>
             </ProtectedRoute>
           } />
           <Route path="/sites" element={<Navigate to="/settings" replace />} />
