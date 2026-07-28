@@ -170,5 +170,5 @@ fi
 echo "Next steps:"
 echo "  1. Open the firewall for TCP $PORT"
 echo "  2. Log in and change the admin password (top-left user menu)"
-echo "  3. Add a collector under Collectors, and/or connect sibling pkt apps under Integrations"
-echo "  4. Copy the pktHub Integration token (Integrations page) into pktHub's App Manager"
+echo "  3. Add a collector under Settings -> Collectors, and/or connect sibling pkt apps under Settings -> Security -> Suite Integration"
+echo "  4. Copy the Suite Token (Settings -> Security -> Suite Integration) into pktHub's App Manager"

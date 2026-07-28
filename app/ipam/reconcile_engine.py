@@ -82,6 +82,29 @@ def _usable_count(cidr: str) -> int:
     return network.num_addresses
 
 
+def _descendant_ids(subnet: dict, subnets: list[dict]) -> list[int]:
+    """Every other subnet fully carved out of this one (any depth) — e.g.
+    all seven /24s under a /16 supernet. Each ip_addresses row is only ever
+    attributed to its most specific containing subnet (see _find_subnet),
+    so a supernet's own rows are always empty; utilization has to roll
+    those descendants' counts up or a supernet always reads 0 used."""
+    try:
+        net = ipaddress.ip_network(subnet["cidr"], strict=False)
+    except ValueError:
+        return []
+    ids = []
+    for other in subnets:
+        if other["id"] == subnet["id"]:
+            continue
+        try:
+            onet = ipaddress.ip_network(other["cidr"], strict=False)
+        except ValueError:
+            continue
+        if onet.version == net.version and onet.prefixlen > net.prefixlen and onet.subnet_of(net):
+            ids.append(other["id"])
+    return ids
+
+
 async def _upsert_conflict(db: aiosqlite.Connection, conflict_type: str, ip_address: str | None,
                             subnet_id: int | None, details: dict) -> None:
     import json
@@ -352,11 +375,16 @@ class ReconcileEngine:
                             await _upsert_conflict(db, "route_gateway_mismatch", None, subnet["id"],
                                                     {"gateway": gateway, "next_hops": sorted(next_hops)})
 
-            # Utilization history — one row per subnet per tick.
+            # Utilization history — one row per subnet per tick. A subnet
+            # with descendants (a supernet like 10.1.0.0/16) rolls up their
+            # used counts too — its own ip_addresses rows are always empty
+            # since every IP reconciles into its most specific subnet.
             for subnet in subnets:
+                subnet_ids = [subnet["id"], *_descendant_ids(subnet, subnets)]
+                placeholders = ",".join("?" * len(subnet_ids))
                 async with db.execute(
-                    "SELECT COUNT(*) FROM ip_addresses WHERE subnet_id = ? AND status != 'free'",
-                    (subnet["id"],),
+                    f"SELECT COUNT(*) FROM ip_addresses WHERE subnet_id IN ({placeholders}) AND status != 'free'",
+                    subnet_ids,
                 ) as cur:
                     used_row = await cur.fetchone()
                 used = used_row[0] if used_row else 0

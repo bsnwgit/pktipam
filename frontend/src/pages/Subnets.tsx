@@ -107,6 +107,41 @@ export default function Subnets() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
+
+  const toggleCollapse = (id: number) => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Nesting is derived purely from CIDR containment (server-computed) — a
+  // subnet needs no manual "parent" field to show up under its supernet.
+  const childrenOf = useMemo(() => {
+    const map = new Map<number | null, Subnet[]>()
+    for (const s of subnets) {
+      const key = s.computed_parent_id
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(s)
+    }
+    for (const list of map.values()) list.sort((a, b) => a.cidr.localeCompare(b.cidr))
+    return map
+  }, [subnets])
+
+  const treeRows = useMemo(() => {
+    const rows: { subnet: Subnet; depth: number }[] = []
+    const visit = (parentId: number | null, depth: number) => {
+      for (const s of childrenOf.get(parentId) ?? []) {
+        rows.push({ subnet: s, depth })
+        if (!collapsed.has(s.id)) visit(s.id, depth + 1)
+      }
+    }
+    visit(null, 0)
+    return rows
+  }, [childrenOf, collapsed])
 
   const load = () => {
     setLoading(true)
@@ -142,6 +177,51 @@ export default function Subnets() {
     setPage(1)
   }
 
+  const isSearching = search.trim().length > 0
+
+  const renderRow = (s: Subnet, depth: number, showToggle: boolean) => {
+    const hasChildren = (childrenOf.get(s.id)?.length ?? 0) > 0
+    return (
+      <tr key={s.id} className="hover:bg-gray-800/30">
+        <td className="px-5 py-3.5">
+          <div className="flex items-center gap-1.5" style={{ paddingLeft: depth * 20 }}>
+            {showToggle && hasChildren ? (
+              <button onClick={() => toggleCollapse(s.id)} className="text-white/60 hover:text-white w-4 text-xs shrink-0 leading-none">
+                {collapsed.has(s.id) ? '▶' : '▼'}
+              </button>
+            ) : <span className="w-4 shrink-0" />}
+            <div>
+              <Link to={`/subnets/${s.id}`} className="text-sky-400 hover:text-sky-300 font-mono">{s.cidr}</Link>
+              {s.description && <p className="text-xs text-white mt-0.5">{s.description}</p>}
+            </div>
+          </div>
+        </td>
+        <td className="px-5 py-3.5 text-white">{s.site ?? '—'}</td>
+        <td className="px-5 py-3.5 text-white font-mono">{s.gateway ?? '—'}</td>
+        <td className="px-5 py-3.5 w-48">
+          {s.utilization ? (
+            <div>
+              <div className="flex justify-between text-xs text-white mb-1">
+                <span>{s.utilization.used_count} / {s.utilization.total_count}</span>
+                <span>{s.utilization.pct_used.toFixed(0)}%</span>
+              </div>
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className={`h-full ${pctColor(s.utilization.pct_used)}`} style={{ width: `${Math.min(100, s.utilization.pct_used)}%` }} />
+              </div>
+            </div>
+          ) : <span className="text-xs text-white">No data yet</span>}
+        </td>
+        <td className="px-5 py-3.5">
+          <span className="px-2 py-0.5 rounded text-xs bg-gray-800 text-white border border-gray-700">{s.source}</span>
+        </td>
+        <td className="px-5 py-3.5 text-right">
+          <button onClick={() => setModal(s)} className="p-1.5 text-white hover:text-sky-400">Edit</button>
+          <button onClick={() => setConfirmDelete(s)} className="p-1.5 text-white hover:text-red-400 ml-1">Delete</button>
+        </td>
+      </tr>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -158,7 +238,7 @@ export default function Subnets() {
         {search && <button onClick={() => { setSearch(''); setPage(1) }} className="text-xs text-white hover:text-white">✕</button>}
       </div>
 
-      {!loading && filteredSubnets.length > 0 && (
+      {!loading && isSearching && filteredSubnets.length > 0 && (
         <div className="flex items-center justify-center gap-6">
           <Pagination page={pageClamped} totalPages={totalPages} onChange={setPage} />
           <div className="flex items-center gap-2">
@@ -193,48 +273,26 @@ export default function Subnets() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
-              {pagedSubnets.map(s => (
-                <tr key={s.id} className="hover:bg-gray-800/30">
-                  <td className="px-5 py-3.5">
-                    <Link to={`/subnets/${s.id}`} className="text-sky-400 hover:text-sky-300 font-mono">{s.cidr}</Link>
-                    {s.description && <p className="text-xs text-white mt-0.5">{s.description}</p>}
-                  </td>
-                  <td className="px-5 py-3.5 text-white">{s.site ?? '—'}</td>
-                  <td className="px-5 py-3.5 text-white font-mono">{s.gateway ?? '—'}</td>
-                  <td className="px-5 py-3.5 w-48">
-                    {s.utilization ? (
-                      <div>
-                        <div className="flex justify-between text-xs text-white mb-1">
-                          <span>{s.utilization.used_count} / {s.utilization.total_count}</span>
-                          <span>{s.utilization.pct_used.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                          <div className={`h-full ${pctColor(s.utilization.pct_used)}`} style={{ width: `${Math.min(100, s.utilization.pct_used)}%` }} />
-                        </div>
-                      </div>
-                    ) : <span className="text-xs text-white">No data yet</span>}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="px-2 py-0.5 rounded text-xs bg-gray-800 text-white border border-gray-700">{s.source}</span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button onClick={() => setModal(s)} className="p-1.5 text-white hover:text-sky-400">Edit</button>
-                    <button onClick={() => setConfirmDelete(s)} className="p-1.5 text-white hover:text-red-400 ml-1">Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {isSearching
+                ? pagedSubnets.map(s => renderRow(s, 0, false))
+                : treeRows.map(({ subnet, depth }) => renderRow(subnet, depth, true))}
               {subnets.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-white">No subnets yet.</td></tr>
               )}
-              {subnets.length > 0 && filteredSubnets.length === 0 && (
+              {subnets.length > 0 && isSearching && filteredSubnets.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-white">No subnets match this filter.</td></tr>
               )}
             </tbody>
           </table>
         )}
-        {!loading && filteredSubnets.length > 0 && (
+        {!loading && isSearching && filteredSubnets.length > 0 && (
           <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
             Showing {((pageClamped - 1) * pageSize + 1).toLocaleString()}–{((pageClamped - 1) * pageSize + pagedSubnets.length).toLocaleString()} of {filteredSubnets.length.toLocaleString()} subnets
+          </div>
+        )}
+        {!loading && !isSearching && subnets.length > 0 && (
+          <div className="px-5 py-2 border-t border-gray-800 text-xs text-white">
+            {subnets.length.toLocaleString()} subnet{subnets.length === 1 ? '' : 's'}
           </div>
         )}
       </div>
