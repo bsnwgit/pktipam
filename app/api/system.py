@@ -12,6 +12,7 @@ import tarfile
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
@@ -19,7 +20,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.dependencies import AdminUser, CurrentUser
-from app.backup import run_backup_sync, list_backups_sync
+from app.backup import run_backup_sync, list_backups_sync, _read_backup_settings_sync
 
 router = APIRouter()
 
@@ -362,8 +363,42 @@ async def export_bundle(user: AdminUser):
         raise
 
 
-def _do_restore(raw: bytes, cfg) -> dict:
+def _restore_from_dir(src_dir: Path, cfg, files: Optional[set[str]]) -> dict:
+    """
+    Restore whatever of {pktipam.db, config.yaml} is present in src_dir and
+    selected by `files` (None means restore everything present).
+    """
     result: dict = {}
+
+    def wanted(name: str) -> bool:
+        return files is None or name in files
+
+    db_src = src_dir / "pktipam.db"
+    if wanted("pktipam.db"):
+        if db_src.exists():
+            shutil.copy2(str(db_src), cfg.db_path)
+            result["pktipam.db"] = "restored"
+        else:
+            result["pktipam.db"] = "not found in backup"
+
+    cfg_src = src_dir / "config.yaml"
+    if wanted("config.yaml"):
+        if cfg_src.exists():
+            shutil.copy2(str(cfg_src), str(Path(cfg.install_dir) / "config.yaml"))
+            result["config.yaml"] = "restored (restart required)"
+        else:
+            result["config.yaml"] = "not found in backup"
+
+    return result
+
+
+def _parse_files_param(files: Optional[str]) -> Optional[set[str]]:
+    if not files:
+        return None
+    return {f.strip() for f in files.split(",") if f.strip()}
+
+
+def _do_restore(raw: bytes, cfg, files: Optional[set[str]]) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         archive_path = tmp_path / "upload.tar.gz"
@@ -375,30 +410,40 @@ def _do_restore(raw: bytes, cfg) -> dict:
         except Exception as e:
             return {"error": f"Failed to extract archive: {e}"}
 
-        db_src = tmp_path / "pktipam.db"
-        if db_src.exists():
-            shutil.copy2(str(db_src), cfg.db_path)
-            result["sqlite"] = "restored"
-        else:
-            result["sqlite"] = "not found in bundle"
-
-        cfg_src = tmp_path / "config.yaml"
-        cfg_dest = Path(cfg.install_dir) / "config.yaml"
-        if cfg_src.exists():
-            shutil.copy2(str(cfg_src), str(cfg_dest))
-            result["config"] = "restored (restart required)"
-        else:
-            result["config"] = "not found in bundle"
-
-    return result
+        return _restore_from_dir(tmp_path, cfg, files)
 
 
 @router.post("/import")
-async def import_bundle(user: AdminUser, file: UploadFile = File(...)):
+async def import_bundle(user: AdminUser, file: UploadFile = File(...), files: Optional[str] = Form(None)):
     """Restore from a pktIPAM export bundle (.tar.gz): pktipam.db +
-    config.yaml. Requires a service restart after restore for config
-    changes to take effect."""
+    config.yaml. `files` is an optional comma-separated subset of
+    {pktipam.db, config.yaml} — omit to restore everything present in the
+    bundle. Requires a service restart after restore for config changes to
+    take effect."""
     cfg = get_settings()
     data = await file.read()
-    result = await asyncio.to_thread(_do_restore, data, cfg)
+    wanted = _parse_files_param(files)
+    result = await asyncio.to_thread(_do_restore, data, cfg, wanted)
+    return result
+
+
+@router.post("/backups/restore/{snapshot_name}")
+async def restore_from_snapshot(user: AdminUser, snapshot_name: str, files: Optional[str] = None) -> dict:
+    """
+    Restore directly from an on-server backup snapshot — no download/upload round trip.
+    `files` is an optional comma-separated subset of {pktipam.db, config.yaml} —
+    omit to restore everything present in the snapshot.
+    """
+    if not re.fullmatch(r"backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}", snapshot_name):
+        raise HTTPException(status_code=400, detail="Invalid snapshot name")
+
+    cfg = get_settings()
+    s = await asyncio.to_thread(_read_backup_settings_sync, cfg.db_path)
+    backup_root = Path(s["backup_path"]).resolve()
+    snap_dir = (backup_root / snapshot_name).resolve()
+    if snap_dir.parent != backup_root or not snap_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    wanted = _parse_files_param(files)
+    result = await asyncio.to_thread(_restore_from_dir, snap_dir, cfg, wanted)
     return result
