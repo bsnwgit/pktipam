@@ -67,3 +67,5 @@ Any IP shown in the app is clickable, opening a lookup using your own per-user A
 ## Getting help in the app
 
 A **?** button near most page headings and Settings sections opens a short explainer.
+
+For longer-form documentation, click **Documentation** in the sidebar (just above your account info) — it opens this guide, the Administrator Guide, and the Collector Setup guide as in-app tabs, so you don't need the repo checked out to read them.
