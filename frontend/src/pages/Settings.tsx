@@ -678,6 +678,10 @@ const setFieldsApi: Record<string, (fields: string[]) => Promise<UserApiKey>> = 
   ipapi_is: api.setIpapiIsFields,
   mxtoolbox: api.setMxtoolboxFields,
 }
+// The 5 providers with a section in the IP Lookup modal — AbuseIPDB and
+// IPQualityScore have no per-field checkboxes (single score, not multiple
+// sections) but still get the modal-section on/off toggle.
+const MODAL_PROVIDERS = ['ipinfo', 'ipapi_is', 'abuseipdb', 'mxtoolbox', 'ipqualityscore']
 
 function ApiKeysTab({ lucidToken, onLucidChange, lucidSave }: {
   lucidToken: string; onLucidChange: (v: string) => void
@@ -712,6 +716,16 @@ function ApiKeysTab({ lucidToken, onLucidChange, lucidSave }: {
     try {
       const updated = await api.setIpapiIsFreeTier(checked)
       setKeys(prev => prev.map(k => k.provider === 'ipapi_is' ? updated : k))
+    } catch (err: any) {
+      setFieldsError(err.message ?? 'Failed to save')
+    }
+  }
+
+  async function handleToggleEnabled(provider: string, checked: boolean) {
+    setFieldsError('')
+    try {
+      const updated = await api.setProviderEnabled(provider, checked)
+      setKeys(prev => prev.map(k => k.provider === provider ? updated : k))
     } catch (err: any) {
       setFieldsError(err.message ?? 'Failed to save')
     }
@@ -776,8 +790,19 @@ function ApiKeysTab({ lucidToken, onLucidChange, lucidSave }: {
           {keys.map(k => {
             const isFreeTier = k.provider === 'ipapi_is' && k.free_tier
             return (
-            <div key={k.provider}>
+            <div key={k.provider} className="pb-4 border-b-2 border-gray-600 last:border-0 last:pb-0">
               <label className="block text-xs text-white mb-1">{k.label}</label>
+              {MODAL_PROVIDERS.includes(k.provider) && (
+                <label className="flex items-center gap-2 text-xs text-white cursor-pointer mb-1.5">
+                  <input
+                    type="checkbox"
+                    checked={k.enabled}
+                    onChange={e => handleToggleEnabled(k.provider, e.target.checked)}
+                    className="accent-sky-600"
+                  />
+                  Show this provider in the IP Lookup modal
+                </label>
+              )}
               {k.provider === 'ipapi_is' && (
                 <label className="flex items-center gap-2 text-xs text-white cursor-pointer mb-1.5">
                   <input
