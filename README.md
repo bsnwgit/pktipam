@@ -473,7 +473,7 @@ See `config.example.yaml` for the full annotated list. Key fields:
 
 Collector configuration (DHCP/DNS/SNMP credentials), alert rules, sites,
 the outbound pktsnmp integration, per-user IP-lookup API keys, and the AI
-Assistant's Anthropic API key are all managed via the UI and stored in
+Assistant's provider config are all managed via the UI and stored in
 SQLite — this file only covers infrastructure/startup settings.
 
 ---
@@ -531,13 +531,16 @@ MXToolbox's other commands — email/DNS record checks (SPF, DMARC, DKIM, MX, DN
 **Settings -> Security -> AI Assistant** — an in-app chat panel
 (`POST /api/ai/chat`, `app/api/ai.py`) that sends the current view's IPAM
 context (subnet summaries, lease data, DNS records, conflicts) plus the
-user's question to Claude, for questions like "which subnets are close to
-exhaustion" or "explain this conflict." Requires its own Anthropic API key
-(console.anthropic.com — separate from a Claude Enterprise seat) saved in
-Settings before it does anything; disabled with a clear error otherwise.
-Defaults to `claude-haiku-4-5-20251001`, overridable via the model field in
-the same settings. Needs the `anthropic` Python package (already pinned in
-`requirements.txt`).
+user's question to whichever provider is enabled, for questions like
+"which subnets are close to exhaustion" or "explain this conflict."
+Providers are grouped local/self-hosted (Ollama, or any OpenAI-compatible
+endpoint) first — tried before cloud — then cloud (Anthropic — from
+console.anthropic.com, separate from a Claude Enterprise seat, defaults to
+`claude-haiku-4-5-20251001`, overridable via the model field — and OpenAI).
+Each has its own enable toggle; at least one must be enabled and configured
+or the chat panel is disabled with a clear error. The Anthropic provider
+needs the `anthropic` Python package (already pinned in `requirements.txt`);
+the local and OpenAI providers use plain `httpx` calls, no extra dependency.
 
 ---
 
