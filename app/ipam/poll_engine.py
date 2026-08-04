@@ -83,7 +83,7 @@ async def resolve_integration(db: aiosqlite.Connection, config: dict) -> dict:
         raise ValueError(f"pktsnmp integration id {integration_id} not found — check Settings -> Security -> Suite Integration")
     resolved = dict(config)
     resolved["base_url"] = row["base_url"]
-    resolved["suite_token"] = row["suite_token"]
+    resolved["suite_token"] = decrypt_str(row["suite_token"])
     return resolved
 
 
