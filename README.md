@@ -542,6 +542,13 @@ or the chat panel is disabled with a clear error. The Anthropic provider
 needs the `anthropic` Python package (already pinned in `requirements.txt`);
 the local and OpenAI providers use plain `httpx` calls, no extra dependency.
 
+The assistant is scoped strictly to pktIPAM's own domain (subnets, VLANs,
+DHCP/DNS, conflicts). A server-side pre-filter blocks prompt-injection/
+override attempts (e.g. "ignore your previous instructions") and questions
+naming another pktApp suite tool before they ever reach the AI provider, and
+the system prompt itself refuses anything else off-topic. Each pktApp has
+its own similarly-scoped assistant.
+
 ---
 
 ## Alerting
