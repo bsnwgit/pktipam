@@ -15,7 +15,7 @@ pkt* suite) with a short in-context explainer — no separate user manual.
 **Default port:** `8761` (HTTP)
 
 **Deployment status:** built, verified end-to-end, and installed as a live
-systemd service on the internal `aiserver` host.
+systemd service on an internal Linux host.
 
 ---
 
@@ -518,7 +518,7 @@ suite (`GET /api/ip-info/{ip}`), combining:
 - **AbuseIPDB** — abuse confidence score and report history
 - **MXToolbox** — reverse DNS (PTR), ASN, and a blacklist/RBL check
 
-All four are called concurrently. Private/loopback/link-local/reserved/multicast addresses are rejected — external providers have nothing useful to say about them. Keys are **per-user**: each logged-in user stores their own under Settings -> User Keys (`app/api/user_api_keys.py`), and lookups run under that user's own key/quota. A fifth provider slot, IPQualityScore, can be saved and tested there but isn't consumed by the lookup yet. For ipinfo.io, ipapi.is, and MXToolbox, a user can also set `enabled_fields` to select which sections of that provider's response they care about.
+All four are called concurrently. Private/loopback/link-local/reserved/multicast addresses are rejected — external providers have nothing useful to say about them. Keys are **per-user**: each logged-in user stores their own under Settings -> User Keys (`app/api/user_api_keys.py`), and lookups run under that user's own key/quota. Keys are Fernet-encrypted at rest (`app/ipam/collectors/crypto.py`, same `credential_key` used for collector secrets) — decrypted only in memory when a lookup runs or the owning user views their own key. A fifth provider slot, IPQualityScore, can be saved and tested there but isn't consumed by the lookup yet. For ipinfo.io, ipapi.is, and MXToolbox, a user can also set `enabled_fields` to select which sections of that provider's response they care about.
 
 **No consuming UI in pktIPAM** — unlike pktsnmp/pktflow/pktlog/pktwifi (which each have an `IpLink.tsx` making public IPs clickable), pktIPAM has no lookup modal wired to any page; the backend, per-user keys, and Settings test buttons work, but nothing in the frontend calls `/api/ip-info/{ip}`. This is a deliberate scope decision, not a gap: every IP pktIPAM displays (subnets, leases, DNS records) is internal/private by nature — RFC1918 addresses these providers can't say anything useful about — so there was no page to attach it to. Also, unlike the rest of the suite, there's no separate "internal IP" counterpart here (`/api/ip-info/internal/{ip}` elsewhere calls out to pktIPAM over Suite Integration) — pktIPAM *is* the source of truth for internal addresses, via its own `/api/ip-addresses`. Revisit if pktIPAM starts managing public-facing subnets.
 

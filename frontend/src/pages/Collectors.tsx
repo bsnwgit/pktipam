@@ -182,7 +182,7 @@ function PollErrorModal({ message, onClose }: { message: string; onClose: () => 
   const copy = async () => {
     try {
       // navigator.clipboard requires a secure context (HTTPS or localhost) —
-      // aiserver is typically plain HTTP on the LAN, where it's undefined
+      // most deployments run plain HTTP on the LAN, where it's undefined
       // and this throws immediately. Fall back to the older
       // execCommand('copy') path, which works over plain HTTP.
       if (navigator.clipboard && window.isSecureContext) {
