@@ -3,6 +3,7 @@ import { api, AlertRule, AlertEvent, AlertConditionType } from '../api/client'
 import { useAuth } from '../store/auth'
 import TimeRangeControl, { TimeRange } from '../components/TimeRangeControl'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const CONDITION_LABEL: Record<AlertConditionType, string> = {
   subnet_near_exhaustion: 'Subnet near exhaustion (% utilized)',
@@ -364,7 +365,13 @@ export default function Alerts() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Alerts</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-white">Alerts</h1>
+            <HelpButton title="Alerts — How It Works">
+              <p>Rules watch subnet/DHCP-pool utilization, IP conflicts, DNS records with no corroborating lease or ARP entry, and collectors stuck in an error state — each rule fires an event when its condition is met, and auto-resolves once it clears.</p>
+              <p>Events can notify in-app, by email, webhook, or Slack depending on the channels a rule has enabled. Import Rules CSV lets you bulk-create rules instead of adding them one at a time.</p>
+            </HelpButton>
+          </div>
           <p className="text-sm text-white mt-0.5">
             {(() => {
               const active = events.filter(e => e.active).length

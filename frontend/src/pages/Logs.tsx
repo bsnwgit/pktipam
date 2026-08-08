@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { api, AppLog, LogStats } from '../api/client'
 import { useAuth } from '../store/auth'
 import TimeRangeControl, { TimeRange } from '../components/TimeRangeControl'
+import HelpButton from '../components/HelpButton'
 
 const LEVELS = ['ALL', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
@@ -77,7 +78,13 @@ export default function Logs() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-white">Application Logs</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">Application Logs</h1>
+          <HelpButton title="Application Logs — How It Works">
+            <p>This is the app's own internal log, not device or lease data — collector runs, API errors, and background job activity.</p>
+            <p>Capture level controls how much is written going forward (admin-only) — lowering it to DEBUG is useful when troubleshooting a specific collector, but generates far more volume.</p>
+          </HelpButton>
+        </div>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-white">
             <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} /> Auto-refresh (5s)

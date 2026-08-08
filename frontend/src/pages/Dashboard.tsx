@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Subnet, Conflict, Collector } from '../api/client'
+import HelpButton from '../components/HelpButton'
 
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
   return (
@@ -44,7 +45,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-white">Dashboard</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white">Dashboard</h1>
+        <HelpButton title="Dashboard — How It Works">
+          <p><span className="text-gray-300 font-medium">IPs Tracked</span> is used/total across every configured subnet. <span className="text-gray-300 font-medium">Open Conflicts</span> and <span className="text-gray-300 font-medium">Collectors in Error</span> both link through to their full pages.</p>
+          <p>Most Utilized Subnets and Recent Conflicts are live shortcuts — click a subnet bar to open its detail grid, or a conflict to jump to Conflicts.</p>
+        </HelpButton>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Subnets" value={subnets.length} />

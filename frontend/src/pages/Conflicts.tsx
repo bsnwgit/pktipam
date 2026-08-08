@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, Conflict } from '../api/client'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -127,7 +128,14 @@ export default function Conflicts() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-white">Conflicts</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white">Conflicts</h1>
+          <HelpButton title="Conflicts — How It Works">
+            <p>Conflicts are detected by reconciling collector data: <span className="text-gray-300 font-medium">Duplicate IP/MAC</span>, <span className="text-gray-300 font-medium">Static/DHCP Mismatch</span> (a static assignment disagrees with an active lease), <span className="text-gray-300 font-medium">Stale DNS</span> (a record with no corroborating lease or ARP entry), <span className="text-gray-300 font-medium">Subnet Overlap/Unrouted</span>, and <span className="text-gray-300 font-medium">Route/Gateway Mismatch</span>.</p>
+            <p>Ack marks a conflict as seen without clearing it; Resolve removes it from the active list. If the underlying condition still exists at the next poll, it's re-detected — resolving doesn't fix the root cause.</p>
+            <p>History keeps every conflict that's been resolved, for audit purposes.</p>
+          </HelpButton>
+        </div>
         {tab === 'active' && active.length > 0 && (
           <button onClick={resolveAll} disabled={resolving}
             className="text-sm border border-gray-700 hover:border-gray-500 text-white rounded-lg px-4 py-2 transition-colors disabled:opacity-50">
