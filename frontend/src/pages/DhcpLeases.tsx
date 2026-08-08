@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, DhcpLease } from '../api/client'
 import IpHistoryModal from '../components/IpHistoryModal'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -42,7 +43,13 @@ export default function DhcpLeases() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-white">DHCP Leases</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white">DHCP Leases</h1>
+        <HelpButton title="DHCP Leases — How It Works">
+          <p>Pulled directly from your DHCP collectors — <span className="text-gray-300 font-medium">Reserved</span> means a fixed/static mapping on the server, <span className="text-gray-300 font-medium">Active</span> is a live dynamic lease, and <span className="text-gray-300 font-medium">Expired</span>/<span className="text-gray-300 font-medium">Released</span> are no longer held by the client.</p>
+          <p>Click the history icon on a row to see when that IP's assignment changed — first seen, changed, and released timestamps.</p>
+        </HelpButton>
+      </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <select value={state} onChange={e => setState(e.target.value)} className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5">

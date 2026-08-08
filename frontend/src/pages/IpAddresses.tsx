@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, IpAddress, Subnet, IpStatus } from '../api/client'
 import IpHistoryModal from '../components/IpHistoryModal'
 import Pagination from '../components/Pagination'
+import HelpButton from '../components/HelpButton'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100]
 
@@ -54,7 +55,13 @@ export default function IpAddresses() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-white">IP Addresses</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-white">IP Addresses</h1>
+        <HelpButton title="IP Addresses — How It Works">
+          <p>Every address across every subnet, reconciled from collector data. <span className="text-gray-300 font-medium">Free</span>/<span className="text-gray-300 font-medium">Used</span> come from ping/ARP sweeps; <span className="text-gray-300 font-medium">DHCP</span>/<span className="text-gray-300 font-medium">Static</span> reflect which collector claimed the address; <span className="text-gray-300 font-medium">Conflict</span> means two sources disagree on it.</p>
+          <p>Click the history icon to see when an address's status or hostname last changed — useful for tracking down "who had this IP last week."</p>
+        </HelpButton>
+      </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <select value={subnetId} onChange={e => setSubnetId(e.target.value)} className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-2 py-1.5">

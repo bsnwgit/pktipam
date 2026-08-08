@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api, Subnet, IpAddress, IpStatus } from '../api/client'
+import HelpButton from '../components/HelpButton'
 
 const STATUS_COLOR: Record<IpStatus, string> = {
   free: 'bg-gray-800 border-gray-700 text-white',
@@ -239,7 +240,13 @@ export default function SubnetDetail() {
     <div className="space-y-4">
       <div>
         <Link to="/subnets" className="text-xs text-sky-400 hover:text-sky-300">← Subnets</Link>
-        <h1 className="text-xl font-bold text-white font-mono mt-1">{subnet.cidr}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white font-mono mt-1">{subnet.cidr}</h1>
+          <HelpButton title="Subnet Detail — How It Works">
+            <p>Every address in the subnet, colored by status. Click one to edit it directly; click and drag (or shift-click) to select a range for a bulk edit.</p>
+            <p>Editing an address here marks it <span className="text-gray-300 font-medium">manual/static</span> — manual entries take precedence over whatever collectors report for that IP going forward, and a MAC mismatch against an active DHCP lease is flagged as a conflict.</p>
+          </HelpButton>
+        </div>
         <p className="text-sm text-white">{subnet.description || subnet.site || ''}</p>
       </div>
 
