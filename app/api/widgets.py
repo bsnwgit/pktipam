@@ -7,6 +7,8 @@ Options:  GET /api/widgets/options/* → JSON [{value,label}] for dynamic param 
 """
 from __future__ import annotations
 
+import html
+
 import aiosqlite
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -120,7 +122,7 @@ async def widget_subnet_utilization(user: CurrentUser):
             pct = r["pct_used"]
             pct_label = f"{pct:.0f}%" if pct is not None else "—"
             parts.append(
-                f'<div class="bar-row"><span class="bar-lbl">{r["cidr"]}</span>'
+                f'<div class="bar-row"><span class="bar-lbl">{html.escape(str(r["cidr"]))}</span>'
                 f'<div class="bar-trk"><div class="bar-fill" style="width:{pct or 0}%"></div></div>'
                 f'<span class="bar-val">{pct_label}</span></div>'
             )
@@ -160,7 +162,7 @@ async def widget_subnet_detail(user: CurrentUser, subnet_id: int | None = None):
         for key, label in labels
     )
     body = (
-        f'<div style="margin-bottom:8px;color:#64748b;font-size:11px">{cidr}</div>'
+        f'<div style="margin-bottom:8px;color:#64748b;font-size:11px">{html.escape(str(cidr))}</div>'
         f'<div class="tile-row">{tiles}</div>'
     )
     return HTMLResponse(_page("Subnet Detail", body))
@@ -185,9 +187,9 @@ async def widget_ip_conflicts(user: CurrentUser):
 
     if rows:
         trs = "".join(
-            f'<tr><td><span class="badge by">{r["conflict_type"].replace("_"," ").upper()}</span></td>'
-            f"<td>{r['ip_address']}</td><td>{r.get('cidr') or ''}</td>"
-            f"<td>{str(r['detected_at'])[:19].replace('T',' ')}</td></tr>"
+            f'<tr><td><span class="badge by">{html.escape(str(r["conflict_type"]).replace("_"," ").upper())}</span></td>'
+            f"<td>{html.escape(str(r['ip_address']))}</td><td>{html.escape(str(r.get('cidr') or ''))}</td>"
+            f"<td>{html.escape(str(r['detected_at'])[:19].replace('T',' '))}</td></tr>"
             for r in rows
         )
         body = (
@@ -218,9 +220,9 @@ async def widget_active_alerts(user: CurrentUser):
 
     if rows:
         trs = "".join(
-            f'<tr><td><span class="badge {"br" if r["severity"]=="critical" else "by"}">{r["severity"].upper()}</span></td>'
-            f"<td>{r.get('cidr') or ''}</td><td>{r['message']}</td>"
-            f"<td>{str(r['created_at'])[:19].replace('T',' ')}</td></tr>"
+            f'<tr><td><span class="badge {"br" if r["severity"]=="critical" else "by"}">{html.escape(str(r["severity"]).upper())}</span></td>'
+            f"<td>{html.escape(str(r.get('cidr') or ''))}</td><td>{html.escape(str(r['message']))}</td>"
+            f"<td>{html.escape(str(r['created_at'])[:19].replace('T',' '))}</td></tr>"
             for r in rows
         )
         body = (
