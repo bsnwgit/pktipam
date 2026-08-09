@@ -4,6 +4,7 @@ pktIPAM — FastAPI application entry point.
 from __future__ import annotations
 
 import logging
+import os.path
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -171,11 +172,14 @@ if _frontend_dist.exists():
     async def serve_spa(request: Request, full_path: str):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
-        _dist_root = _frontend_dist.resolve()
-        resolved = (_frontend_dist / full_path).resolve()
-        if not resolved.is_relative_to(_dist_root):
+        # Normalize-then-prefix-check (CodeQL's own documented pattern for
+        # py/path-injection) rather than pathlib's resolve()/is_relative_to,
+        # which its Python taint tracker doesn't recognize as a sanitizer.
+        _dist_root = os.path.normpath(str(_frontend_dist))
+        _candidate = os.path.normpath(os.path.join(_dist_root, full_path))
+        if not (_candidate == _dist_root or _candidate.startswith(_dist_root + os.sep)):
             raise HTTPException(status_code=404, detail="Not found")
-        static_file = resolved
+        static_file = Path(_candidate)
         if static_file.exists() and static_file.is_file():
             return FileResponse(str(static_file))
         index = _frontend_dist / "index.html"
