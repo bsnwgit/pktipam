@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import get_settings
+from app.dependencies import CurrentUser
 
 router = APIRouter()
 _s     = get_settings()
@@ -96,7 +97,7 @@ tr:hover td{{background:#111827}}
 
 # ── Subnet Utilization widget ─────────────────────────────────────────────────
 @router.get("/subnet_utilization", response_class=HTMLResponse, include_in_schema=False)
-async def widget_subnet_utilization():
+async def widget_subnet_utilization(user: CurrentUser):
     rows = []
     try:
         async with aiosqlite.connect(_DB) as db:
@@ -131,7 +132,7 @@ async def widget_subnet_utilization():
 
 # ── Subnet Detail widget (per-subnet, dynamic) ───────────────────────────────
 @router.get("/subnet_detail", response_class=HTMLResponse, include_in_schema=False)
-async def widget_subnet_detail(subnet_id: int | None = None):
+async def widget_subnet_detail(user: CurrentUser, subnet_id: int | None = None):
     if not subnet_id:
         return HTMLResponse(_page("Subnet Detail", '<div class="empty">Select a subnet</div>'))
 
@@ -167,7 +168,7 @@ async def widget_subnet_detail(subnet_id: int | None = None):
 
 # ── IP Conflicts widget ────────────────────────────────────────────────────────
 @router.get("/ip_conflicts", response_class=HTMLResponse, include_in_schema=False)
-async def widget_ip_conflicts():
+async def widget_ip_conflicts(user: CurrentUser):
     rows = []
     try:
         async with aiosqlite.connect(_DB) as db:
@@ -200,7 +201,7 @@ async def widget_ip_conflicts():
 
 # ── Active Alerts widget ──────────────────────────────────────────────────────
 @router.get("/active_alerts", response_class=HTMLResponse, include_in_schema=False)
-async def widget_active_alerts():
+async def widget_active_alerts(user: CurrentUser):
     rows = []
     try:
         async with aiosqlite.connect(_DB) as db:
@@ -233,7 +234,7 @@ async def widget_active_alerts():
 
 # ── Param option pickers ──────────────────────────────────────────────────────
 @router.get("/options/subnets")
-async def widget_options_subnets():
+async def widget_options_subnets(user: CurrentUser):
     try:
         async with aiosqlite.connect(_DB) as db:
             db.row_factory = aiosqlite.Row
