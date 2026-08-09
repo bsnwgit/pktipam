@@ -2,6 +2,9 @@
   "name": "pktipam-ui",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --port 5175",
     "build": "tsc && vite build",
@@ -11,7 +14,7 @@
     "clsx": "^2.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.24.0",
+    "react-router-dom": "^7.18.2",
     "recharts": "^2.12.7"
   },
   "devDependencies": {
