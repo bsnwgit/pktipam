@@ -35,6 +35,7 @@ systemd service on an internal Linux host.
 - [IP Address History](#ip-address-history)
 - [Subnets, VLANs & Mass IP Update](#subnets-vlans--mass-ip-update)
 - [Routing Tables](#routing-tables)
+- [Settings Layout](#settings-layout)
 - [Configuration Reference](#configuration-reference)
 - [Running & Managing the Service](#running--managing-the-service)
 - [Roles & Auth](#roles--auth)
@@ -452,6 +453,26 @@ routing-table walk that already ships.
 
 ---
 
+## Settings Layout
+
+The **Settings** page is organized into two **sections**, chosen from a
+section bar above the tab bar:
+
+| Section | Tabs |
+|---|---|
+| **Common** | General · Security (Users, Auth, Suite Integration, AI Assistant, SSL/TLS) · Data (Storage, Backups) · Notifications · User Keys · System |
+| **pktIPAM** | SNMP Credentials · Sites · Collectors (admin-only) |
+
+Common holds the settings that are identical across every pkt* app;
+pktIPAM holds this app's own. Selecting a section swaps the tab bar
+beneath it, so only one group's tabs are visible at a time — previously
+they shared a single long row separated by a thin divider. Deep links
+still work unchanged: `/settings?tab=collectors` (the target of the
+"unknown collector" alert link, among others) selects the right section
+automatically.
+
+---
+
 ## Configuration Reference
 
 See `config.example.yaml` for the full annotated list. Key fields:
@@ -541,6 +562,12 @@ Each has its own enable toggle; at least one must be enabled and configured
 or the chat panel is disabled with a clear error. The Anthropic provider
 needs the `anthropic` Python package (already pinned in `requirements.txt`);
 the local and OpenAI providers use plain `httpx` calls, no extra dependency.
+
+Each provider call is allowed up to **180 seconds** to come back with an
+answer. That ceiling is sized for a local model on modest hardware working
+through a complex, multi-part question; cloud providers rarely approach it.
+Past that, the chat reports that the provider didn't finish in time and
+suggests a shorter question, rather than hanging or failing blankly.
 
 The assistant is scoped strictly to pktIPAM's own domain (subnets, VLANs,
 DHCP/DNS, conflicts). A server-side pre-filter blocks prompt-injection/
