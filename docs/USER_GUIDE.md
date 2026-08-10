@@ -17,6 +17,8 @@ Log in with your username and password, or Okta SSO if configured.
 
 **Dashboard**, **Subnets**, **IP Addresses**, **VLANs**, **Capacity Planner**, **DHCP Leases**, **DNS Records**, **Routes**, **Conflicts**, **Alerts**, **Logs**. **Settings** appears only for admins.
 
+Settings has a section bar at the top with **Common** (General, Security, Data, Notifications, User Keys, System — the same in every pkt* app) and **pktIPAM** (SNMP Credentials, Sites, Collectors). The tab row below shows one section at a time, so switch sections if a tab looks missing. Links that point straight at a tab pick the section for you.
+
 ## Subnets
 
 Each subnet holds a CIDR, optional VLAN link, site, gateway, and optional parent subnet (for hierarchy). Click a subnet to open its detail view: the full IP grid for that block, utilization, and per-IP history.
