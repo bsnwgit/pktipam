@@ -23,6 +23,15 @@ Prompts for install directory and port, handles the venv, `config.yaml` + secret
 7. **Set up backups** (Data → Backups) and confirm a manual run succeeds.
 8. **Create accounts** for your team.
 
+## Finding your way around Settings
+
+Settings has a section bar above its tab bar with two buttons:
+
+- **Common** — General, Security (Users, Auth, Suite Integration, AI Assistant, SSL/TLS), Data (Storage, Backups), Notifications, User Keys, System. Identical across every pkt* app.
+- **pktIPAM** — SNMP Credentials, Sites, Collectors (admin-only). This app's own.
+
+The tab bar shows only the selected section's tabs, so switch sections if a tab isn't where you expect it. These used to be one long row split by a thin divider. Deep links to a tab — including the "unknown collector" alert link into Settings → Collectors — still work and select the section for you.
+
 ## Users & roles
 
 `admin` (full access, including collectors/integrations/settings/users), `analyst` (create/edit subnets/VLANs/sites/manual reservations, resolve conflicts, ack/resolve alerts), `viewer` (read-only). Local auth is always available; layer SAML SSO on top via Settings if needed. When pktHub proxies a request with a valid suite token, its `X-Suite-Role` header maps directly onto these same three roles.
