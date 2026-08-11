@@ -638,7 +638,7 @@ Settings -> Data -> Backups -> "Run backup now", or let the built-in
 scheduler run on the configured interval (default every 24 hours). Each
 snapshot is a timestamped directory under `<install_dir>/backups/`
 containing `pktipam.db` + `config.yaml`; a full backup bundle can also be
-downloaded as a `.tar.gz`. Each listed snapshot has a **Restore…** link
+downloaded as a `.tar.gz`. Downloading that bundle requires re-entering your current password: it pairs the database with `config.yaml`, i.e. every encrypted secret alongside the key that decrypts them, in one file that lands in a Downloads folder. Being logged in as an admin isn't a high enough bar to hand that over. Each listed snapshot has a **Restore…** link
 that restores directly from that on-server snapshot — no download/upload
 round trip required — and lets you pick just `pktipam.db` or just
 `config.yaml` instead of always restoring both together; the same
