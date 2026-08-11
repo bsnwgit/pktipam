@@ -48,6 +48,7 @@ systemd service on an internal Linux host.
 - [Development](#development)
 - [Contributing](#contributing)
 - [Known Gaps / Fast-Follow Work](#known-gaps--fast-follow-work)
+- [Log Forwarding](#log-forwarding)
 
 ---
 
@@ -648,6 +649,20 @@ restored config.
 
 ---
 
+### Backup integrity
+
+Database snapshots are taken through SQLite's own online-backup API and then
+verified with `PRAGMA integrity_check`; a snapshot that does not pass is logged
+loudly and not counted as usable.
+
+This matters more than it sounds. The database runs in WAL mode, so at any
+instant the committed state is split between the `.db` file and its `-wal`
+sidecar. The previous implementation copied the `.db` alone with `shutil.copy2`,
+which captures neither a consistent snapshot nor the most recent commits — the
+worst possible failure mode for the one artifact you reach for in an emergency,
+because it looks like a backup either way.
+
+
 ## Troubleshooting
 
 **Web UI shows `{"detail":"Not Found"}`** — the frontend wasn't built.
@@ -743,3 +758,51 @@ than everything at once:
   triggers a live send automatically (same state as every other pkt* app
   in this suite — Send Test is the entire notification feature
   everywhere, not unique to pktIPAM).
+
+## Log Forwarding
+
+pktIPAM writes its own application log to the in-app **Logs** page. It can also
+ship that log to a syslog collector — normally **pktLog**, which listens on
+port `5514` — so this app's events sit alongside the rest of the estate.
+
+Settings keys (Settings → Data → Log Forwarding in apps that expose the UI;
+otherwise via `PUT /api/settings`):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `log_forward_enabled` | `false` | Turn forwarding on |
+| `log_forward_host` | `""` | Collector hostname or IP |
+| `log_forward_port` | `5514` | pktLog's syslog port |
+| `log_forward_protocol` | `udp` | `udp` or `tcp` |
+| `log_forward_level` | `INFO` | Minimum level forwarded |
+| `log_forward_app_name` | `pktipam` | APP-NAME in the syslog message |
+
+Admin endpoints:
+
+- `GET  /api/system/log-forward/status` — delivery counters (sent, dropped, errors)
+- `POST /api/system/log-forward/test` — send one test line without saving settings
+- `POST /api/system/log-forward/reload` — apply settings changes without a restart
+
+**Format is RFC 5424, deliberately.** pktLog parses both 3164 and 5424, but
+3164 timestamps carry no timezone and the collector has to guess the offset —
+which has produced wrong timestamps in this suite before. 5424 carries a full
+offset, so there is nothing to guess.
+
+**Delivery is fire-and-forget** on a background thread, with counters. Log
+forwarding must never block or crash the thing it observes: a dropped line is a
+nuisance, a stalled collector loop is an outage. If the collector is
+unreachable, lines are dropped and counted rather than raised.
+
+### If forwarded logs never arrive
+
+**pktLog drops syslog from sources that are not registered.** Its
+`collector_registry` gates what is allowed to persist, so the sending host's IP
+must be present *and enabled* under pktLog's Settings → Collectors. Until then
+the messages are accepted on the wire and silently discarded — the sender sees
+a successful send either way, because UDP cannot tell it otherwise. pktLog also
+caches that registry for five minutes, so a newly enabled source is not live
+immediately.
+
+Use the **Send test message** button (or the `test` endpoint) to confirm the
+path end to end rather than assuming it works.
+
