@@ -51,12 +51,42 @@ _STATE_MAP = {
 }
 
 
+def _apply_host_key_policy(client) -> None:
+    """Verify the host key instead of trusting it on first sight.
+
+    AutoAddPolicy accepted any key a host offered and cached it, so the first
+    connection — the one that establishes trust — was unauthenticated. A machine
+    in between could present its own key and capture the SSH credentials used to
+    log in to network infrastructure.
+
+    Known hosts come from the usual places. If an estate has never had its keys
+    recorded, PKT_SSH_TRUST_NEW_HOSTS=1 restores the old behaviour; it is opt-in
+    and named in the failure message so it cannot be switched on unknowingly.
+    """
+    import os
+
+    import paramiko
+
+    client.load_system_host_keys()
+    user_known = os.path.expanduser("~/.ssh/known_hosts")
+    if os.path.exists(user_known):
+        try:
+            client.load_host_keys(user_known)
+        except OSError:
+            pass
+
+    if os.environ.get("PKT_SSH_TRUST_NEW_HOSTS") == "1":
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    else:
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
+
+
 def _fetch_file_sync(config: dict) -> str:
     """Runs in a worker thread — paramiko is synchronous."""
     import paramiko
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    _apply_host_key_policy(client)
     connect_kwargs: dict = {
         "hostname": config["host"],
         "port": int(config.get("port") or 22),
