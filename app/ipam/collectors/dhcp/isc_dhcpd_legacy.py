@@ -51,12 +51,49 @@ _STATE_MAP = {
 }
 
 
+def _apply_host_key_policy(client) -> None:
+    """Verify the host key instead of trusting it on first sight.
+
+    AutoAddPolicy accepted any key a host offered and cached it, so the first
+    connection — the one that establishes trust — was unauthenticated. A machine
+    in between could present its own key and capture the SSH credentials used to
+    log in to network infrastructure.
+
+    Known hosts come from the system file, then ~/.ssh/known_hosts, then
+    PKT_SSH_KNOWN_HOSTS if set — which is how an estate with its own key store
+    points this at it. There is deliberately no "trust anything" switch: that
+    would just put the original vulnerability behind a flag.
+    """
+    import os
+
+    import paramiko
+
+    client.load_system_host_keys()
+    for candidate in (
+        os.environ.get("PKT_SSH_KNOWN_HOSTS"),
+        os.path.expanduser("~/.ssh/known_hosts"),
+    ):
+        if candidate and os.path.exists(candidate):
+            try:
+                client.load_host_keys(candidate)
+            except OSError:
+                pass
+
+    # RejectPolicy unconditionally. An earlier version of this fix kept an
+    # AutoAddPolicy escape hatch behind an environment variable, which is
+    # exactly the blind first-contact trust the fix exists to remove — it just
+    # moved it behind a flag. Point PKT_SSH_KNOWN_HOSTS at a file instead: a
+    # host key can be recorded deliberately, which is auditable, where
+    # "accept whatever answers this time" is not.
+    client.set_missing_host_key_policy(paramiko.RejectPolicy())
+
+
 def _fetch_file_sync(config: dict) -> str:
     """Runs in a worker thread — paramiko is synchronous."""
     import paramiko
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    _apply_host_key_policy(client)
     connect_kwargs: dict = {
         "hostname": config["host"],
         "port": int(config.get("port") or 22),
