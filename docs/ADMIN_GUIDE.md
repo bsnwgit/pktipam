@@ -27,7 +27,6 @@ Prompts for install directory and port, handles the venv, `config.yaml` + secret
 
 Settings has a section bar above its tab bar with two buttons:
 
-- **Common** — General, Security (Users, Auth, Suite Integration, AI Assistant, SSL/TLS), Data (Storage, Backups), Notifications, User Keys, System. Identical across every pkt* app.
 - **pktIPAM** — SNMP Credentials, Sites, Collectors (admin-only). This app's own.
 
 The tab bar shows only the selected section's tabs, so switch sections if a tab isn't where you expect it. These used to be one long row split by a thin divider. Deep links to a tab — including the "unknown collector" alert link into Settings → Collectors — still work and select the section for you.
