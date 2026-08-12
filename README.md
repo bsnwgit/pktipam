@@ -8,7 +8,7 @@ Enterprise IP Address Management — part of the pkt suite. Gathers lease,
 zone, device-ARP, and routing-table data from your DHCP servers, DNS
 servers, and network devices, reconciles it into a single source of truth
 (subnets, IP addresses, VLANs), and detects conflicts between sources.
-Surfaces it through a React UI with alerting and an in-app AI assistant.
+Surfaces it through a React UI with alerting.
 Every page/section has a "?" help button (same pattern across the whole
 pkt* suite) with a short in-context explainer — no separate user manual.
 
@@ -40,7 +40,6 @@ systemd service on an internal Linux host.
 - [Running & Managing the Service](#running--managing-the-service)
 - [Roles & Auth](#roles--auth)
 - [IP Intelligence Lookup](#ip-intelligence-lookup)
-- [AI Assistant](#ai-assistant)
 - [Alerting](#alerting)
 - [Suite Integration](#suite-integration)
 - [Backup & Restore](#backup--restore)
@@ -461,7 +460,6 @@ section bar above the tab bar:
 
 | Section | Tabs |
 |---|---|
-| **Common** | General · Security (Users, Auth, Suite Integration, AI Assistant, SSL/TLS) · Data (Storage, Backups) · Notifications · User Keys · System |
 | **pktIPAM** | SNMP Credentials · Sites · Collectors (admin-only) |
 
 Common holds the settings that are identical across every pkt* app;
@@ -494,8 +492,8 @@ See `config.example.yaml` for the full annotated list. Key fields:
 | `ssl_dir` | `<install_dir>/ssl` | SSL certificate directory (optional override) |
 
 Collector configuration (DHCP/DNS/SNMP credentials), alert rules, sites,
-the outbound pktsnmp integration, per-user IP-lookup API keys, and the AI
-Assistant's provider config are all managed via the UI and stored in
+the outbound pktsnmp integration, and per-user IP-lookup API keys are all
+managed via the UI and stored in
 SQLite — this file only covers infrastructure/startup settings.
 
 ---
@@ -545,37 +543,6 @@ All four are called concurrently. Private/loopback/link-local/reserved/multicast
 **No consuming UI in pktIPAM** — unlike pktsnmp/pktflow/pktlog/pktwifi (which each have an `IpLink.tsx` making public IPs clickable), pktIPAM has no lookup modal wired to any page; the backend, per-user keys, and Settings test buttons work, but nothing in the frontend calls `/api/ip-info/{ip}`. This is a deliberate scope decision, not a gap: every IP pktIPAM displays (subnets, leases, DNS records) is internal/private by nature — RFC1918 addresses these providers can't say anything useful about — so there was no page to attach it to. Also, unlike the rest of the suite, there's no separate "internal IP" counterpart here (`/api/ip-info/internal/{ip}` elsewhere calls out to pktIPAM over Suite Integration) — pktIPAM *is* the source of truth for internal addresses, via its own `/api/ip-addresses`. Revisit if pktIPAM starts managing public-facing subnets.
 
 MXToolbox's other commands — email/DNS record checks (SPF, DMARC, DKIM, MX, DNS, TXT, SOA, BIMI, MTA-STS, TLSRPT, A, AAAA) and active probes (ping, traceroute, TCP/HTTP/HTTPS/SMTP connect, run from MXToolbox's own infrastructure against the target) — are reachable via `POST /api/mxtoolbox/lookup` (`{command, argument, port?}`, `app/api/mxtoolbox.py`) but aren't surfaced anywhere in the UI.
-
----
-
-## AI Assistant
-
-**Settings -> Security -> AI Assistant** — an in-app chat panel
-(`POST /api/ai/chat`, `app/api/ai.py`) that sends the current view's IPAM
-context (subnet summaries, lease data, DNS records, conflicts) plus the
-user's question to whichever provider is enabled, for questions like
-"which subnets are close to exhaustion" or "explain this conflict."
-Providers are grouped local/self-hosted (Ollama, or any OpenAI-compatible
-endpoint) first — tried before cloud — then cloud (Anthropic — from
-console.anthropic.com, separate from a Claude Enterprise seat, defaults to
-`claude-haiku-4-5-20251001`, overridable via the model field — and OpenAI).
-Each has its own enable toggle; at least one must be enabled and configured
-or the chat panel is disabled with a clear error. The Anthropic provider
-needs the `anthropic` Python package (already pinned in `requirements.txt`);
-the local and OpenAI providers use plain `httpx` calls, no extra dependency.
-
-Each provider call is allowed up to **180 seconds** to come back with an
-answer. That ceiling is sized for a local model on modest hardware working
-through a complex, multi-part question; cloud providers rarely approach it.
-Past that, the chat reports that the provider didn't finish in time and
-suggests a shorter question, rather than hanging or failing blankly.
-
-The assistant is scoped strictly to pktIPAM's own domain (subnets, VLANs,
-DHCP/DNS, conflicts). A server-side pre-filter blocks prompt-injection/
-override attempts (e.g. "ignore your previous instructions") and questions
-naming another pktApp suite tool before they ever reach the AI provider, and
-the system prompt itself refuses anything else off-topic. Each pktApp has
-its own similarly-scoped assistant.
 
 ---
 
@@ -681,13 +648,6 @@ the pktsnmp integration, a stale/missing/disabled Suite Integration entry.
 acknowledges the conflict, it doesn't fix the underlying data mismatch. If
 the same DHCP/DNS/ARP condition is still true on the next reconcile tick
 (~60s), the conflict reopens.
-
-**AI Assistant chat said "Not authenticated" even with a provider configured
-(fixed 2026-08-03)** — the chat request wasn't sending the session's auth
-token, so it failed pktIPAM's own login check before ever reaching the
-configured AI provider; unrelated to Ollama/Anthropic/OpenAI settings. Also
-fixed: connection/timeout failures reaching a provider used to show a blank
-error message; they now name the provider and its base URL.
 
 ---
 
