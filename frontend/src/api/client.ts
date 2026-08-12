@@ -287,8 +287,6 @@ export const api = {
   regenerateSuiteToken: () => request<{ suite_token: string; status: string }>('/suite/regenerate', { method: 'POST' }),
 
   // -- Settings ---------------------------------------------------------------------
-  aiChat: (question: string, context: Record<string, unknown> = {}) =>
-    request<{ answer: string; provider?: string; tokens_used: number }>('/ai/chat', { method: 'POST', body: JSON.stringify({ question, context }) }),
 
   getSettings: () => request<Record<string, unknown>>('/settings'),
   updateSettings: (values: Record<string, unknown>) => request('/settings', { method: 'PUT', body: JSON.stringify({ values }) }),
