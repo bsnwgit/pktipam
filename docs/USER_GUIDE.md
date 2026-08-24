@@ -66,6 +66,16 @@ Active/History/Rules tabs. Built-in condition types: subnet nearing exhaustion, 
 
 Any IP shown in the app is clickable, opening a lookup using your own per-user API keys (Settings → User Keys) — same pattern as the rest of the pkt suite.
 
+## The assistant
+
+If your administrator has set it up, a launcher sits in the bottom corner of every page. Click it to ask questions in a chat panel. The panel comes from the resonance server, so what it can help with depends on how your administrator configured it there.
+
+Depending on what your administrator has allowed for your role, it can look at this install's subnets, addresses, VLANs, conflicts, collectors, alerts and logs — never anything your own account could not already open, and never a collector's stored credentials. It may also be able to **act**: acknowledge an alert, acknowledge all of them, or switch an alert rule on or off. It will always say exactly what it is about to do and wait for you to say yes.
+
+It can never add, change or delete a subnet, an address, a VLAN or a collector, and it cannot resolve a conflict for you.
+
+If the launcher never appears, either your role is set to *No access* or the assistant could not load. Your administrator can see both under Settings → Resonance.
+
 ## Getting help in the app
 
 A **?** button near most page headings and Settings sections opens a short explainer.
