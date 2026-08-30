@@ -267,7 +267,7 @@ export default function Subnets() {
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
+          <div className="f-tbl-scroll flex items-center justify-center h-32 text-white text-sm">Loading…</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
