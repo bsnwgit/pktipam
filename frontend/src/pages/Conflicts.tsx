@@ -194,7 +194,7 @@ export default function Conflicts() {
             {loading ? (
               <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="f-tbl-cards w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
                     <th className="px-5 py-3 w-8">
@@ -213,14 +213,14 @@ export default function Conflicts() {
                       <td className="px-5 py-3">
                         <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleOne(c.id)} />
                       </td>
-                      <td className="px-5 py-3">
+                      <td data-label="Type" className="px-5 py-3">
                         <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-900/40 text-red-300 border border-red-700/40">
                           {TYPE_LABEL[c.conflict_type] ?? c.conflict_type}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-mono text-white">{c.ip_address ?? '—'}</td>
-                      <td className="px-5 py-3 text-white text-xs font-mono">{JSON.stringify(c.details)}</td>
-                      <td className="px-5 py-3 text-white text-xs">{c.detected_at}</td>
+                      <td data-label="IP" className="px-5 py-3 font-mono text-white">{c.ip_address ?? '—'}</td>
+                      <td data-label="Details" className="px-5 py-3 text-white text-xs font-mono">{JSON.stringify(c.details)}</td>
+                      <td data-label="Detected" className="px-5 py-3 text-white text-xs">{c.detected_at}</td>
                       <td className="px-5 py-3 text-right">
                         <button onClick={() => resolve(c)} className="text-xs text-white border border-gray-700 rounded-lg px-3 py-1.5 hover:bg-gray-800">Resolve</button>
                       </td>
@@ -276,7 +276,7 @@ export default function Conflicts() {
             {loading ? (
               <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="f-tbl-cards w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
                     <th className="text-left px-5 py-3 text-xs font-medium text-white uppercase tracking-wider">Type</th>
@@ -289,14 +289,14 @@ export default function Conflicts() {
                 <tbody className="divide-y divide-gray-800/60">
                   {pagedHistory.map(c => (
                     <tr key={c.id} className="hover:bg-gray-800/30">
-                      <td className="px-5 py-3">
+                      <td data-label="Type" className="px-5 py-3">
                         <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-900/40 text-red-300 border border-red-700/40">
                           {TYPE_LABEL[c.conflict_type] ?? c.conflict_type}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-mono text-white">{c.ip_address ?? '—'}</td>
-                      <td className="px-5 py-3 text-white text-xs font-mono">{JSON.stringify(c.details)}</td>
-                      <td className="px-5 py-3 text-xs">
+                      <td data-label="IP" className="px-5 py-3 font-mono text-white">{c.ip_address ?? '—'}</td>
+                      <td data-label="Details" className="px-5 py-3 text-white text-xs font-mono">{JSON.stringify(c.details)}</td>
+                      <td data-label="Resolved" className="px-5 py-3 text-xs">
                         <span className="text-emerald-400">Resolved by {c.resolved_by}</span>
                         <p className="text-white mt-0.5">{c.resolved_at}</p>
                       </td>

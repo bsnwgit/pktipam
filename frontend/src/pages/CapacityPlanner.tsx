@@ -133,7 +133,7 @@ export default function CapacityPlanner() {
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="f-tbl-cards w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800">
                   <th className="text-left px-5 py-3 text-xs font-medium text-white uppercase tracking-wider">Subnet</th>
@@ -146,10 +146,10 @@ export default function CapacityPlanner() {
               <tbody className="divide-y divide-gray-800/60">
                 {result.candidates.map((c, i) => (
                   <tr key={i} className="hover:bg-gray-800/30">
-                    <td className="px-5 py-3 text-white font-mono">{c.subnet_cidr}</td>
-                    <td className="px-5 py-3 text-white font-mono">{c.cidr ?? `${c.start_ip} – ${c.end_ip}`}</td>
-                    <td className="px-5 py-3 text-white">{c.size}</td>
-                    <td className="px-5 py-3 text-white">{c.aligned ? 'Yes' : 'No (fragmented free space)'}</td>
+                    <td data-label="Subnet" className="px-5 py-3 text-white font-mono">{c.subnet_cidr}</td>
+                    <td data-label="Candidate Range" className="px-5 py-3 text-white font-mono">{c.cidr ?? `${c.start_ip} – ${c.end_ip}`}</td>
+                    <td data-label="Size" className="px-5 py-3 text-white">{c.size}</td>
+                    <td data-label="Aligned CIDR" className="px-5 py-3 text-white">{c.aligned ? 'Yes' : 'No (fragmented free space)'}</td>
                     <td className="px-5 py-3 text-right">
                       <button onClick={() => setReserveTarget(c)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs rounded-lg">
                         Reserve
