@@ -290,7 +290,7 @@ export default function Collectors() {
         {loading ? (
           <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="f-tbl-cards w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
                 <th className="text-left px-5 py-3 text-xs font-medium text-white uppercase tracking-wider">Name</th>
@@ -304,16 +304,16 @@ export default function Collectors() {
             <tbody className="divide-y divide-gray-800/60">
               {collectors.map(c => (
                 <tr key={c.id} className="hover:bg-gray-800/30">
-                  <td className="px-5 py-3 text-white">{c.name}{!c.enabled && <span className="text-xs text-white ml-2">(disabled)</span>}</td>
-                  <td className="px-5 py-3 text-white uppercase text-xs">{c.category}</td>
-                  <td className="px-5 py-3 text-white text-xs">{c.collector_type}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="Name" className="px-5 py-3 text-white">{c.name}{!c.enabled && <span className="text-xs text-white ml-2">(disabled)</span>}</td>
+                  <td data-label="Category" className="px-5 py-3 text-white uppercase text-xs">{c.category}</td>
+                  <td data-label="Type" className="px-5 py-3 text-white text-xs">{c.collector_type}</td>
+                  <td data-label="Status" className="px-5 py-3">
                     <span className={`text-xs font-medium ${c.status === 'ok' ? 'text-emerald-400' : c.status === 'error' ? 'text-red-400' : 'text-white'}`}>
                       {c.status}
                     </span>
                     {c.last_error && <p className="text-xs text-red-400 mt-0.5 max-w-xs truncate" title={c.last_error}>{c.last_error}</p>}
                   </td>
-                  <td className="px-5 py-3 text-white text-xs">{c.last_poll_at ?? 'never'}</td>
+                  <td data-label="Last Poll" className="px-5 py-3 text-white text-xs">{c.last_poll_at ?? 'never'}</td>
                   <td className="px-5 py-3 text-right space-x-2 whitespace-nowrap">
                     {pollResult[c.id] && (
                       pollErrors[c.id] ? (

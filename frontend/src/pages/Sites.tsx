@@ -84,7 +84,7 @@ export default function Sites() {
         {loading ? (
           <div className="flex items-center justify-center h-32 text-white text-sm">Loading…</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="f-tbl-cards w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
                 <th className="text-left px-5 py-3 text-xs font-medium text-white uppercase tracking-wider">Name</th>
@@ -95,8 +95,8 @@ export default function Sites() {
             <tbody className="divide-y divide-gray-800/60">
               {sites.map(s => (
                 <tr key={s.id} className="hover:bg-gray-800/30">
-                  <td className="px-5 py-3 text-white">{s.name}</td>
-                  <td className="px-5 py-3 text-white">{s.description ?? '—'}</td>
+                  <td data-label="Name" className="px-5 py-3 text-white">{s.name}</td>
+                  <td data-label="Description" className="px-5 py-3 text-white">{s.description ?? '—'}</td>
                   <td className="px-5 py-3 text-right">
                     <button onClick={() => setModal(s)} className="p-1.5 text-white hover:text-sky-400">Edit</button>
                     <button onClick={() => setConfirmDelete(s)} className="p-1.5 text-white hover:text-red-400 ml-1">Delete</button>
