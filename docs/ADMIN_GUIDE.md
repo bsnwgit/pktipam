@@ -128,6 +128,10 @@ Where no role is set to *Read and write*, the write operations are withheld from
 
 ## Troubleshooting
 
+The five that come up most often. For anything else — per-collector-type
+failures, the seven conflict types, alerts, TLS, upgrades, performance — see
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 | Symptom | Check |
 |---|---|
 | Service won't start | `journalctl -u pktipam -n 50`; check `config.yaml` and secret key |
