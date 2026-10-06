@@ -35,6 +35,21 @@ The tab bar shows only the selected section's tabs, so switch sections if a tab 
 
 `admin` (full access, including collectors/integrations/settings/users), `analyst` (create/edit subnets/VLANs/sites/manual reservations, resolve conflicts, ack/resolve alerts), `viewer` (read-only). Local auth is always available; layer SAML SSO on top via Settings if needed. When pktHub proxies a request with a valid suite token, its `X-Suite-Role` header maps directly onto these same three roles.
 
+**Failed-login lockout.** A local account is locked for 30 minutes after a set number of failed logins in a row (Settings → Security → Auth → *Failed logins before lockout*, default 3). Failures never expire; only a successful login resets the count. If it then fails that many times again it stays locked until an admin clicks the unlock icon beside it on the Users tab. While locked, even the right password is refused. A wrong current password when changing a password counts as a failed login too, so a signed-in session cannot be used to guess it. A successful login clears the failure count and any earlier lockout. If the only admin is locked, unlock it from the server, in the install directory with the app's own Python:
+
+```bash
+python3 scripts/unlock_user.py <username>
+```
+
+**Per-address throttle.** Separately from the account lockout, an address that keeps failing to sign in is blocked. Failed credential checks are counted by the address they came from, whatever username was tried, at the sign-in form and at the change-password form: after *Failed sign-ins per address* (default 10) within *Counted over* (default 15 minutes), that address is refused for *Address blocked for* (default 15 minutes), even with correct credentials. All three are under Settings → Security → Auth. A successful sign-in does not reset the count, and failures stop counting when the window ends. Other addresses are unaffected, and the block ends by itself.
+
+The address is the one the connection came from. If pktIPAM sits behind a proxy on another host (pktHub, for example), every user arrives from the proxy's address and shares one count, so one person guessing could block everyone behind it. In that setup raise the limit well above normal use, or throttle at the proxy. pktIPAM does not read `X-Forwarded-For`, because any client can send it.
+
+
+### Okta SAML SSO
+
+Settings → Security → Auth: paste Okta's IdP metadata XML (auto-fills SSO URL/Entity ID/certificate) or enter by hand. ACS URL and SP metadata link are derived from **Base URL** — set that first.
+
 ## Collectors
 
 One row per data source under Settings → Collectors: category (dhcp/dns/device), type, poll interval, and a **schema-driven config form** (not raw JSON) with secret fields (passwords, API keys, SNMP v3 auth, WinRM/SSH creds) Fernet-encrypted at rest. **Poll Now** runs an immediate poll outside the schedule; a failure shows the collector's `last_error` in a dismissable modal.
