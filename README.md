@@ -1,6 +1,10 @@
 # pktIPAM
 
 <p align="center">
+  <img src="docs/screenshots/social-preview.png" alt="pktIPAM — One source of truth for every IP address" width="900">
+</p>
+
+<p align="center">
   <img src="lockup-256h.png" alt="pktIPAM" height="64">
 </p>
 
@@ -29,6 +33,14 @@ pkt* suite) with a short in-context explainer — no separate user manual.
 systemd service on an internal Linux host.
 
 ---
+
+## Why pktIPAM
+
+- **Reconcile instead of guess.** Gathers lease, zone, device-ARP and routing-table data from your DHCP servers, DNS servers and network devices.
+- **A single source of truth.** Merges it into subnets, IP addresses and VLANs.
+- **Conflicts surface by themselves.** Detects conflicts between sources as they appear.
+- **Part of a suite.** One of ten self-hosted pkt apps that share one architecture (FastAPI + React), `admin` / `analyst` / `viewer` roles and a suite token. pktIPAM installs and runs standalone, so take only what you need.
+- **Self-hosted, source-available.** A SQLite database and an installer script. Sign in with local accounts or SAML 2.0 SSO. Free for noncommercial use under the [PolyForm Noncommercial License](LICENSE).
 
 ## Table of Contents
 
