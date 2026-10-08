@@ -5,19 +5,12 @@
 </p>
 
 <p align="center">
+  <a href="docs/SCREENSHOTS.md"><strong>View screenshots</strong></a>
+</p>
+
+<p align="center">
   <img src="lockup-256h.png" alt="pktIPAM" height="64">
 </p>
-
-<p align="center">
-  <img src="docs/screenshots/dashboard.webp" alt="pktIPAM — Dashboard" width="900">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/subnets.webp" alt="pktIPAM — Subnets" width="430">
-  <img src="docs/screenshots/conflicts.webp" alt="pktIPAM — Conflict detection" width="430">
-</p>
-
-<p align="center"><sub>Dashboard &middot; Subnets &middot; Conflict detection</sub></p>
 
 Enterprise IP Address Management — part of the [pkt suite](#the-pkt-suite). Gathers lease,
 zone, device-ARP, and routing-table data from your DHCP servers, DNS
