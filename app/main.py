@@ -122,10 +122,16 @@ async def lifespan(app: FastAPI):
     app.state.reconcile_engine = reconcile_engine
     log.info("Reconciliation engine started")
 
+    import asyncio
+    from app.self_update import run_forever as self_update_run_forever
+    self_update_task = asyncio.create_task(self_update_run_forever())
+    app.state.self_update_task = self_update_task
+
     yield
 
     # -- Shutdown ----------------------------------------------------------------
     log.info("pktIPAM shutting down")
+    self_update_task.cancel()
     await reconcile_engine.stop()
     await poll_engine.stop()
     await alert_engine.stop()
